@@ -1,0 +1,13 @@
+go 1.25.4
+
+use (
+	./api-gateway
+	./domains/events/api
+	./domains/gate/api
+	./domains/housing/api
+	./domains/identity/api
+	./domains/reports/api
+	./domains/restau/api
+	./domains/transport/api
+	./platform/go
+)
