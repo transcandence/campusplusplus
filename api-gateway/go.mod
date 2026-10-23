@@ -1,3 +1,3 @@
-module github.com/your-org/campus/api-gateway
+module github.com/transcandence/campusplusplus/api-gateway
 
 go 1.25.4
