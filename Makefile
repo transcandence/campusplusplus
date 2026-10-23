@@ -12,5 +12,11 @@ test:
 gen:
 	@echo "TODO"
 
-migrate:
-	@echo "TODO"
+migrate-up-%:
+	cd services/$*/api && set -a && . ./.env && set +a && go run ./cmd/migrate up
+
+migrate-down-%:
+	cd services/$*/api && set -a && . ./.env && set +a && go run ./cmd/migrate down 1
+
+migrate-version-%:
+	cd services/$*/api && set -a && . ./.env && set +a && go run ./cmd/migrate version
