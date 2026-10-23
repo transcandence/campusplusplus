@@ -1,4 +1,4 @@
 packages:
-  - "domains/*/web"
+  - "servises/*/web"
   - "web-shell"
   - "platform/ts/*"
