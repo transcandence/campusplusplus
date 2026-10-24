@@ -30,4 +30,4 @@ EXPOSE 8080
 ENV GATEWAY_ADDR=:8080
 ENV IDENTITY_URL=http://identity:8080
 
-CMD ["./api_gateway"]
+CMD ["./api_gateway"] 
