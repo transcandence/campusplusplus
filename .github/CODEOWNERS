@@ -1,0 +1,31 @@
+# Root, Monorepo Config & CI
+*                                           @codewithhippo17 @slaissam
+/Makefile                                   @codewithhippo17 @slaissam
+/go.work                                    @codewithhippo17 @slaissam
+/pnpm-workspace.yaml                        @codewithhippo17 @polipagram
+/.github/                                   @codewithhippo17 @slaissam
+/docs/adr/                                  @codewithhippo17 @slaissam
+
+# Contracts (Require both Backend & Frontend sign-off)
+/services/*/contracts/                      @codewithhippo17 @polipagram @a-bousfiha
+
+# Infrastructure & Compose
+/infra/                                     @slaissam @abafahmi @codewithhippo17
+/tools/seed/                                @a-bousfiha @abafahmi
+
+# Shared Platform Libraries (Note: General /platform/go/ comes first so specific sub-paths override it)
+/platform/go/                               @codewithhippo17 @slaissam
+/platform/go/auth/                          @a-bousfiha @codewithhippo17
+/platform/go/events/                        @a-bousfiha @codewithhippo17
+/platform/go/observability/                 @codewithhippo17 @slaissam
+/platform/ts/ui/                            @a-bousfiha @polipagram
+/platform/ts/api-client/                    @polipagram @codewithhippo17
+
+# API Gateway & Identity Service (General /api/ comes first so /migrations/ overrides it)
+/api-gateway/                               @codewithhippo17 @slaissam
+/services/identity/api/                     @slaissam @a-bousfiha @codewithhippo17
+/services/identity/api/migrations/          @abafahmi @codewithhippo17
+
+# Frontend & Design Tokens
+/docs/design/                               @polipagram @a-bousfiha
+/frontend/                                  @polipagram @a-bousfiha
