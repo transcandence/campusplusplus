@@ -1,0 +1,1 @@
+CREATE DATABASE campus_identity;
