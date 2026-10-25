@@ -7,3 +7,7 @@ node_modules/
 dist/
 bin/
 go.work.sum
+
+# Next.js
+next-env.d.ts
+*.tsbuildinfo

@@ -1,4 +1,8 @@
 packages:
-  - "servises/*/web"
-  - "web-shell"
-  - "platform/ts/*"
+  - frontend
+  - services/*/web
+  - platform/ts/*
+
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
