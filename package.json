@@ -1,0 +1,11 @@
+{
+  "name": "campus",
+  "private": true,
+  "packageManager": "pnpm@11.28.8",
+  "engines": { "node": ">=24 <25" },
+  "scripts": {
+    "dev:frontend": "pnpm --filter ./frontend dev",
+    "build": "pnpm -r --if-present build",
+    "lint": "pnpm -r --if-present lint"
+  }
+}

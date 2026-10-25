@@ -1,0 +1,36 @@
+services:
+  api-gateway:
+    build:
+      context: ../../api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - ../../api-gateway/.env
+    networks:
+      - app_net
+
+  postgres:
+    image: postgres:17
+    env_file:
+      - .env
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    networks:
+      - app_net
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  postgres_data:
+
+networks:
+  app_net:
+    driver: bridge
