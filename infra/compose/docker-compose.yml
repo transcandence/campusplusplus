@@ -1,5 +1,15 @@
-
 services:
+  api-gateway:
+    build:
+      context: ../../api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - ../../api-gateway/.env
+    networks:
+      - app_net
+
   postgres:
     image: postgres:17
     env_file:
