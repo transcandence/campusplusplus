@@ -3,14 +3,13 @@ FROM golang:1.25.4-alpine AS builder
 
 WORKDIR /app
 
-COPY go.mod ./
-#COPY go.mod go.sum ./
+COPY go.mod go.sum* ./
 
 RUN go mod download
 
 COPY . .
 
-RUN CGO=ENABLED=0 GOOS=linux \
+RUN CGO_ENABLED=0 GOOS=linux \
     go build -trimpath -ldflags="-s -w" \
     -o /api_gateway ./cmd/server/main.go
 
@@ -21,13 +20,10 @@ WORKDIR /app
 
 RUN adduser -D -g '' app
 
-COPY --from=builder /api-api_gateway ./api_gateway
+COPY --from=builder /api_gateway ./api_gateway
 
 USER app
 
 EXPOSE 8080
-
-ENV GATEWAY_ADDR=:8080
-ENV IDENTITY_URL=http://identity:8080
 
 CMD ["./api_gateway"] 

@@ -2,3 +2,7 @@
 .gitignore
 .env
 .env.example
+README.md
+api_gateway
+*.test
+*.out

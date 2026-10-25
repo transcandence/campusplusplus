@@ -5,13 +5,11 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
-    environment:
-      GATEWAY_ADDR: ":8080"
-      IDENTITY_URL: "http://identity:8080"
+    env_file:
+      - ../../api-gateway/.env
     networks:
       - app_net
 
 networks:
   app_net:
     driver: bridge
- 
