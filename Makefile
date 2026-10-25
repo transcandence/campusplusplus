@@ -2,6 +2,7 @@
 COMPOSE_FILE ?= infra/compose/docker-compose.yml
 SERVICES_DIR ?= services
 SERVICES      = identity housing transport
+svc          ?= all
 
 # --- Tools & Binaries ---
 DOCKER_COMPOSE ?= docker compose
@@ -14,10 +15,9 @@ CODEGEN        ?= $(GO) run github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen@
 .PHONY: up down test gen lint migrate $(addprefix migrate-up-,$(SERVICES)) $(addprefix migrate-down-,$(SERVICES)) $(addprefix migrate-version-,$(SERVICES)) test-gateway test-platform $(addprefix test-service-,$(SERVICES))
 
 up:
-	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) up -d
-
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile $(svc) up -d
 down:
-	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) down
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile $(svc) down
 
 # Global test runs everything in sequence
 test: test-gateway test-platform $(addprefix test-service-,$(SERVICES))
