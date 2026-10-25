@@ -7,6 +7,10 @@ services:
       - "8080:8080"
     env_file:
       - ../../api-gateway/.env
+    profiles:
+      - gateway
+      - identity
+      - all
     networks:
       - app_net
 
@@ -16,6 +20,11 @@ services:
       - .env
     ports:
       - "${POSTGRES_PORT}:5432"
+    profiles:
+      - infra
+      - gateway
+      - identity
+      - all
     networks:
       - app_net
     volumes:
