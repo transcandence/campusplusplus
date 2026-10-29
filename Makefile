@@ -2,7 +2,11 @@
 COMPOSE_FILE ?= infra/compose/docker-compose.yml
 SERVICES_DIR ?= services
 SERVICES      = identity housing transport
-svc          ?= all
+
+# Services that have a real contracts/openapi.yaml.
+# Add housing / transport here once their spec is filled in.
+GEN_SERVICES  = identity
+GEN_FILES     = $(foreach s,$(GEN_SERVICES),$(SERVICES_DIR)/$(s)/api/internal/handler/generated.go)
 
 # --- Tools & Binaries ---
 DOCKER_COMPOSE ?= docker compose
@@ -10,9 +14,19 @@ PNPM           ?= pnpm
 GO             ?= go
 GO_MIGRATE     ?= $(GO) run ./cmd/migrate
 LINTER         ?= golangci-lint run
-CODEGEN        ?= $(GO) run github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen@latest
+CODEGEN        ?= $(GO) run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.4.1
+#NOTE: stable instead of latest
 
-.PHONY: up down test gen lint migrate $(addprefix migrate-up-,$(SERVICES)) $(addprefix migrate-down-,$(SERVICES)) $(addprefix migrate-version-,$(SERVICES)) test-gateway test-platform $(addprefix test-service-,$(SERVICES))
+# A bare `make` prints the target list instead of running `up`
+.DEFAULT_GOAL := help
+
+# Remove a half-written output file if a recipe fails
+.DELETE_ON_ERROR:
+
+.PHONY: help up down test gen gen-go gen-ts check-gen lint migrate $(addprefix migrate-up-,$(SERVICES)) $(addprefix migrate-down-,$(SERVICES)) $(addprefix migrate-version-,$(SERVICES)) test-gateway test-platform $(addprefix test-service-,$(SERVICES))
+
+help:
+	@echo "targets: up down test gen gen-go gen-ts check-gen lint migrate"
 
 up:
 	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile $(svc) up -d
@@ -31,17 +45,23 @@ test-gateway:
 test-platform:
 	cd platform/go && $(GO) test ./...
 
-test-service-%:
+$(addprefix test-service-,$(SERVICES)): test-service-%:
 	cd $(SERVICES_DIR)/$*/api && $(GO) test ./...
 
-gen:
-	@echo "Generating TypeScript frontend clients..."
-	$(PNPM) gen
-	@echo "Generating Go backend types and handlers..."
-	$(foreach svc,$(SERVICES), \
-		$(CODEGEN) -generate types,chi-server -package api \
-		$(SERVICES_DIR)/$(svc)/contracts/openapi.yaml \
-		> $(SERVICES_DIR)/$(svc)/api/internal/handler/generated.go;)
+# --- Code Generation ---
+gen: gen-go
+
+gen-go: $(GEN_FILES)
+
+# One rule per generated.go, rebuilt only when its openapi.yaml changes
+$(SERVICES_DIR)/%/api/internal/handler/generated.go: $(SERVICES_DIR)/%/contracts/openapi.yaml
+	@echo "  -> $*"
+	@mkdir -p $(@D)
+	@$(CODEGEN) -generate types,gin-server -package handler -o $@ $<
+
+# CI: fail if generated code is out of date
+check-gen: gen
+	@git diff --exit-code -- $(GEN_FILES) || (echo "generated code is stale, run make gen"; exit 1)
 
 lint:
 	$(LINTER)
@@ -50,11 +70,16 @@ lint:
 # --- Database Migrations ---
 migrate: $(addprefix migrate-up-,$(SERVICES))
 
-migrate-up-%:
+$(addprefix migrate-up-,$(SERVICES)): migrate-up-%:
 	cd $(SERVICES_DIR)/$*/api && set -a && . ./.env && set +a && $(GO_MIGRATE) up
 
-migrate-down-%:
+$(addprefix migrate-down-,$(SERVICES)): migrate-down-%:
 	cd $(SERVICES_DIR)/$*/api && set -a && . ./.env && set +a && $(GO_MIGRATE) down 1
 
-migrate-version-%:
+$(addprefix migrate-version-,$(SERVICES)): migrate-version-%:
 	cd $(SERVICES_DIR)/$*/api && set -a && . ./.env && set +a && $(GO_MIGRATE) version
+
+# gen-ts:
+	# @echo "Generating TypeScript frontend clients..."
+	# $(PNPM) gen
+

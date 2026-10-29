@@ -1,0 +1,273 @@
+openapi: 3.0.3
+
+info:
+  title: Campus Identity API
+  version: 0.1.0
+  description: |
+    Authentication and current-user endpoints for the campus platform
+    (housing, transportation, restaurant, gate, events, reports).
+
+    ## Conventions
+    - All bodies are JSON (`application/json`) unless stated otherwise.
+    - All errors use **RFC 9457 Problem Details** (`application/problem+json`).
+    - Every response carries an `X-Request-Id` header; quote it in bug reports.
+    - Access tokens are JWTs sent as `Authorization: Bearer <token>`.
+  license:
+    name: Proprietary
+    url: https://campus.ma/terms
+
+servers:
+  - url: http://localhost:8080/v1
+    description: Local development (through the API gateway)
+
+tags:
+  - name: Auth
+    description: Login.
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Log in with email and password
+      description: |
+        Verifies credentials and opens a session. Returns a short-lived access
+        token.
+
+        To avoid user enumeration, wrong email and wrong password return the
+        **same** `401` response.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              student:
+                summary: A student logging in
+                value:
+                  email: sara.benali@campus.ma
+                  password: Sara@benali1234
+
+      responses:
+        '200':
+          description: Authenticated.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: |
+            Credentials are right but the account cannot log in
+            (`pending_verification` or `suspended`). Check the `code` field.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                suspended:
+                  value:
+                    type: https://api.campus.ma/errors/account-suspended
+                    title: Account suspended
+                    status: 403
+                    code: account_suspended
+                    detail: This account is suspended. Contact the administration.
+                pendingVerification:
+                  value:
+                    type: https://api.campus.ma/errors/account-pending-verification
+                    title: Account pending verification
+                    status: 403
+                    code: account_pending_verification
+                    detail: Verify your email address before logging in.
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Access token from `/auth/login`, sent as
+        `Authorization: Bearer <token>`. Claims used: `sub` (account id),
+        `sid` (session id), `campus_id`, `exp`.
+
+  headers:
+    RequestId:
+      description: Unique id of this request, for tracing and support.
+      schema:
+        type: string
+        format: uuid
+    CacheControlNoStore:
+      description: 'Always `no-store`: token responses must never be cached by browsers or proxies.'
+      schema:
+        type: string
+        enum: [no-store]
+    RetryAfter:
+      description: Seconds to wait before retrying.
+      schema:
+        type: integer
+        minimum: 1
+
+  responses:
+    Unauthorized:
+      description: |
+        Missing, invalid or expired credentials/token. Deliberately generic:
+        it never says whether the email or the password was wrong.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+        WWW-Authenticate:
+          description: Authentication scheme expected.
+          schema:
+            type: string
+            example: 'Bearer realm="campus-api"'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            invalidCredentials:
+              value:
+                type: https://api.campus.ma/errors/unauthorized
+                title: Unauthorized
+                status: 401
+                code: invalid_credentials
+                requestId: 0192f5b1-2c3d-7e4f-9a0b-1c2d3e4f5a6b
+
+    ValidationError:
+      description: The request is well-formed JSON but violates a business or format rule.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ValidationProblem'
+          examples:
+            invalidEmail:
+              value:
+                type: https://api.campus.ma/errors/validation
+                title: Validation failed
+                status: 422
+                code: validation_failed
+                errors:
+                  - field: email
+                    code: invalid_format
+                    message: Must be a valid email address.
+
+    TooManyRequests:
+      description: Rate limit exceeded. Wait `Retry-After` seconds.
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            rateLimited:
+              value:
+                type: https://api.campus.ma/errors/too-many-requests
+                title: Too many requests
+                status: 429
+                code: rate_limited
+                detail: Too many login attempts. Try again in 60 seconds.
+
+  schemas:
+    LoginRequest:
+      type: object
+      required: [email, password]
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          format: password
+          writeOnly: true
+          maxLength: 128
+
+    TokenResponse:
+      type: object
+      required: [accessToken, tokenType, expiresIn]
+      properties:
+        accessToken:
+          type: string
+          description: Short-lived JWT (about 15 minutes).
+        tokenType:
+          type: string
+          enum: [Bearer]
+        expiresIn:
+          type: integer
+          description: Access-token lifetime in seconds.
+          example: 900
+
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+          description: Stable identifier of the error kind (can link to docs).
+        title:
+          type: string
+          description: Short human-readable summary; same for every occurrence of this `type`.
+        status:
+          type: integer
+          description: HTTP status code, repeated in the body for convenience.
+        detail:
+          type: string
+          description: Explanation specific to this occurrence. Never leaks internals or stack traces.
+        instance:
+          type: string
+          description: URI of this specific occurrence.
+        code:
+          type: string
+          description: Machine-readable code for client logic (`invalid_credentials`, `account_suspended`...). Stable; clients should switch on this, not on `title`.
+        requestId:
+          type: string
+          format: uuid
+
+    ValidationProblem:
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          required: [errors]
+          properties:
+            errors:
+              type: array
+              items:
+                type: object
+                required: [field, code]
+                properties:
+                  field:
+                    type: string
+                    description: Name of the offending field (JSON pointer or dotted path).
+                  code:
+                    type: string
+                    description: Machine-readable reason (`required`, `invalid_format`, `too_short`...).
+                  message:
+                    type: string
