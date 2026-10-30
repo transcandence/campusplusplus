@@ -1,0 +1,58 @@
+name: TypeScript CI
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - "package.json"
+      - "pnpm-workspace.yaml"
+      - "pnpm-lock.yaml"
+      - "platform/ts/**"
+      - "frontend/**"
+      - "services/*/web/**"
+      - ".github/workflows/ts-ci.yml"
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - "package.json"
+      - "pnpm-workspace.yaml"
+      - "pnpm-lock.yaml"
+      - "platform/ts/**"
+      - "frontend/**"
+      - "services/*/web/**"
+      - ".github/workflows/ts-ci.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ts-ci:
+    name: TypeScript (Lint, Test & Build)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Lint workspace
+        run: pnpm run lint
+
+      - name: Test workspace
+        run: pnpm -r --if-present test
+
+      - name: Build workspace
+        run: pnpm run build

@@ -1,0 +1,67 @@
+name: Go CI
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - "go.work"
+      - ".golangci.yml"
+      - "platform/go/**"
+      - "api-gateway/**"
+      - "services/*/api/**"
+      - ".github/workflows/go-ci.yml"
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - "go.work"
+      - ".golangci.yml"
+      - "platform/go/**"
+      - "api-gateway/**"
+      - "services/*/api/**"
+      - ".github/workflows/go-ci.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go-ci:
+    name: Go (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - platform/go
+          - api-gateway
+          - services/identity/api
+          - services/housing/api
+          - services/transport/api
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.4"
+          cache-dependency-path: |
+            platform/go/go.sum
+            api-gateway/go.sum
+            services/*/api/go.sum
+
+      - name: Lint (${{ matrix.module }})
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: latest
+          working-directory: ${{ matrix.module }}
+          args: --config ${{ github.workspace }}/.golangci.yml
+
+      - name: Test (${{ matrix.module }})
+        working-directory: ${{ matrix.module }}
+        run: go test -v -race ./...
+
+      - name: Build (${{ matrix.module }})
+        working-directory: ${{ matrix.module }}
+        run: go build -v ./...
