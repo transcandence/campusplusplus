@@ -52,9 +52,9 @@ jobs:
             services/*/api/go.sum
 
       - name: Lint (${{ matrix.module }})
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
-          version: v1.64.8
+          version: latest
           working-directory: ${{ matrix.module }}
           args: --config ${{ github.workspace }}/.golangci.yml
 
