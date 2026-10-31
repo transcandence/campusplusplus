@@ -2,16 +2,41 @@ openapi: 3.0.3
 
 info:
   title: Campus Identity API
-  version: 0.1.0
+  version: 0.2.0
   description: |
     Authentication and current-user endpoints for the campus platform
     (housing, transportation, restaurant, gate, events, reports).
+
+    This is the **login slice**: log in, stay logged in (refresh), log out
+    (current device or all devices), and fetch the current user.
 
     ## Conventions
     - All bodies are JSON (`application/json`) unless stated otherwise.
     - All errors use **RFC 9457 Problem Details** (`application/problem+json`).
     - Every response carries an `X-Request-Id` header; quote it in bug reports.
     - Access tokens are JWTs sent as `Authorization: Bearer <token>`.
+
+    ## Tokens
+    - **Access token**: short-lived JWT (600 seconds / 10 minutes), sent as
+      `Authorization: Bearer <token>` on every authenticated request.
+    - **Refresh token**: opaque, long-lived (30 days), returned by
+      `/auth/login` and `/auth/refresh` in the JSON body. It is rotated on
+      every successful refresh; the old token is invalidated immediately.
+      Store it in the most restrictive storage available. Do not log it.
+
+    ## Refresh failures
+    Any failure to refresh (unknown, expired, revoked, reused, or an account
+    that is `pending_verification` / `suspended`) returns the same
+    `401 invalid_refresh`. Clients should treat any `401` from
+    `/auth/refresh` as "the refresh token is no longer usable; log in again."
+    The account-status distinction (`403`) is only exposed on `/auth/login`.
+
+    ## Logout
+    Logout is **idempotent**: `POST /auth/logout` returns `204` whether the
+    refresh token was valid, already revoked, or garbage. `POST
+    /auth/logout-all` returns `204` when the bearer token is valid (even if
+    no sessions were active), and `401` only when the bearer token is
+    missing or invalid.
   license:
     name: Proprietary
     url: https://campus.ma/terms
@@ -22,7 +47,9 @@ servers:
 
 tags:
   - name: Auth
-    description: Login.
+    description: Login, refresh, and logout.
+  - name: Me
+    description: Current user.
 
 security:
   - bearerAuth: []
@@ -35,7 +62,10 @@ paths:
       summary: Log in with email and password
       description: |
         Verifies credentials and opens a session. Returns a short-lived access
-        token.
+        token and a long-lived refresh token.
+
+        Email matching is **case-insensitive** (`Sara@campus.ma` and
+        `sara@campus.ma` reach the same account).
 
         To avoid user enumeration, wrong email and wrong password return the
         **same** `401` response.
@@ -65,6 +95,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
+              examples:
+                tokens:
+                  value:
+                    accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                    tokenType: Bearer
+                    expiresIn: 600
+                    refreshToken: 7f3c1e9a4b2d8f6e0c5a1b3d9e7f2a4c6b8d0e1f3a5c7b9d2e4f6a8c0b1d3e5f
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -98,6 +135,176 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      operationId: refresh
+      summary: Exchange a refresh token for new tokens
+      description: |
+        Rotates the refresh token and issues a new access token. The old
+        refresh token is invalidated on success; the new refresh token is
+        returned in the body and must replace the old one client-side.
+
+        Failures are intentionally generic: an unknown, expired, revoked, or
+        reused refresh token, and a refresh for a `pending_verification` or
+        `suspended` account, all return the same `401 invalid_refresh`.
+        Clients should treat any `401` from this endpoint as "the refresh
+        token is no longer usable; log in again."
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+            examples:
+              refresh:
+                value:
+                  refreshToken: 7f3c1e9a4b2d8f6e0c5a1b3d9e7f2a4c6b8d0e1f3a5c7b9d2e4f6a8c0b1d3e5f
+      responses:
+        '200':
+          description: Tokens rotated.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              examples:
+                rotated:
+                  value:
+                    accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                    tokenType: Bearer
+                    expiresIn: 600
+                    refreshToken: 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b
+        '401':
+          description: |
+            The refresh token is unknown, expired, revoked, reused, or belongs
+            to an account that cannot log in. Clients should send the user back
+            to `/auth/login`.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                invalidRefresh:
+                  value:
+                    type: https://api.campus.ma/errors/invalid-refresh
+                    title: Invalid refresh token
+                    status: 401
+                    code: invalid_refresh
+                    detail: The refresh token is no longer usable. Log in again.
+                    requestId: 0192f5b1-2c3d-7e4f-9a0b-1c2d3e4f5a6b
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: End the current session
+      description: |
+        Revokes the session associated with the supplied refresh token.
+
+        Idempotent: returns `204` whether the token was valid, already
+        revoked, or unknown. The client should discard the refresh token on
+        any `204`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+            examples:
+              logout:
+                value:
+                  refreshToken: 7f3c1e9a4b2d8f6e0c5a1b3d9e7f2a4c6b8d0e1f3a5c7b9d2e4f6a8c0b1d3e5f
+      responses:
+        '204':
+          description: Session ended (or already ended).
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/logout-all:
+    post:
+      tags: [Auth]
+      operationId: logoutAll
+      summary: End every session for the current user
+      description: |
+        Revokes all active sessions for the authenticated user. Useful after
+        a device is lost or when the user wants to sign out everywhere.
+
+        Requires a valid bearer token. Returns `204` when the token is valid,
+        even if no sessions were active (idempotent). Returns `401` only when
+        the bearer token is missing or invalid.
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: All sessions for this user have been revoked.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me:
+    get:
+      tags: [Me]
+      operationId: getMe
+      summary: Get the current user
+      description: |
+        Returns the identity of the user the bearer token belongs to. This is
+        the endpoint clients call right after login to render the current
+        user; it exposes a safe subset of the `users` table (no phone number,
+        birthday, gender, nationality, or profile fields).
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The current user.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMe'
+              examples:
+                student:
+                  value:
+                    id: 42
+                    email: sara.benali@campus.ma
+                    firstName: Sara
+                    lastName: Benali
+                    affiliation: FGSES
+                    role: student
+                    status: active
+                    campus: rabat
+                    createdAt: '2024-09-01T09:15:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -105,9 +312,26 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: |
-        Access token from `/auth/login`, sent as
-        `Authorization: Bearer <token>`. Claims used: `sub` (account id),
-        `sid` (session id), `campus_id`, `exp`.
+        Access token from `/auth/login` or `/auth/refresh`, sent as
+        `Authorization: Bearer <token>`.
+
+        The token is a signed JWT (HS256) with the following claims:
+
+          - `sub`        — account id (the `users.id` value)
+          - `sid`        — session id (the `sessions.id` value)
+          - `campus_id`  — campus code (e.g. `rabat`)
+          - `role`       — user role (`student`, `staff`, `admin`, `guest`, `worker`)
+          - `iat`        — issued-at time
+          - `exp`        — expiry time (10 minutes after `iat`)
+          - `iss`        — `campus-identity`
+          - `aud`        — `campus-api`
+          - `jti`        — unique token id
+
+        Tokens are verified by signature only (no database lookup on the hot
+        path). `sid`, `campus_id`, and `role` reflect the account state at
+        issue time; changes (suspend, role change, campus change) are
+        reflected at the next `/auth/refresh`, at most 10 minutes after they
+        occur.
 
   headers:
     RequestId:
@@ -130,7 +354,8 @@ components:
     Unauthorized:
       description: |
         Missing, invalid or expired credentials/token. Deliberately generic:
-        it never says whether the email or the password was wrong.
+        on `/auth/login` it never says whether the email or the password was
+        wrong.
       headers:
         X-Request-Id:
           $ref: '#/components/headers/RequestId'
@@ -168,6 +393,7 @@ components:
                 title: Validation failed
                 status: 422
                 code: validation_failed
+                requestId: 0192f5b1-2c3d-7e4f-9a0b-1c2d3e4f5a6b   # <-- add
                 errors:
                   - field: email
                     code: invalid_format
@@ -191,6 +417,7 @@ components:
                 title: Too many requests
                 status: 429
                 code: rate_limited
+                requestId: 0192f5b1-2c3d-7e4f-9a0b-1c2d3e4f5a6b   # <-- add
                 detail: Too many login attempts. Try again in 60 seconds.
 
   schemas:
@@ -203,26 +430,96 @@ components:
           type: string
           format: email
           maxLength: 254
+          description: Case-insensitive (`Sara@campus.ma` and `sara@campus.ma` are the same account).
         password:
           type: string
           format: password
           writeOnly: true
           maxLength: 128
 
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      additionalProperties: false
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          description: |
+            The refresh token returned by `/auth/login` or by the previous
+            successful `/auth/refresh`. Rotated on every successful refresh.
+
+    LogoutRequest:
+      type: object
+      required: [refreshToken]
+      additionalProperties: false
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          description: |
+            The refresh token for the session to end. Idempotent: an unknown
+            or already-revoked token still returns `204`.
+
     TokenResponse:
       type: object
-      required: [accessToken, tokenType, expiresIn]
+      required: [accessToken, tokenType, expiresIn, refreshToken]
       properties:
         accessToken:
           type: string
-          description: Short-lived JWT (about 15 minutes).
+          description: |
+            Short-lived JWT access token. Sent as
+            `Authorization: Bearer <token>` on every authenticated request.
+            Lifetime: 600 seconds (10 minutes).
         tokenType:
           type: string
           enum: [Bearer]
         expiresIn:
           type: integer
           description: Access-token lifetime in seconds.
-          example: 900
+          example: 600
+        refreshToken:
+          type: string
+          description: |
+            Long-lived opaque refresh token (30 days). Rotated on every
+            successful `/auth/refresh`; the old token is invalidated
+            immediately. The current deployment returns it in the response
+            body. Store it in the most restrictive storage available (in a
+            browser: `sessionStorage` at most, never `localStorage`; on
+            mobile: the OS keychain). Do not log it.
+
+    UserMe:
+      type: object
+      required:
+        [id, email, firstName, lastName, affiliation, role, status, campus, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: The `users.id` value.
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        affiliation:
+          type: string
+          enum: ['1337', 'ABS', 'FGSES', 'SHBM', 'SAS', 'CC', 'AEM', 'um6p']
+        role:
+          type: string
+          enum: [student, staff, admin, guest, worker]
+        status:
+          type: string
+          enum: [pending_verification, active, suspended]
+        campus:
+          type: string
+          description: Campus code (e.g. `rabat`), not the numeric id.
+          example: rabat
+        createdAt:
+          type: string
+          format: date-time
 
     Problem:
       type: object
@@ -246,7 +543,7 @@ components:
           description: URI of this specific occurrence.
         code:
           type: string
-          description: Machine-readable code for client logic (`invalid_credentials`, `account_suspended`...). Stable; clients should switch on this, not on `title`.
+          description: Machine-readable code for client logic (`invalid_credentials`, `account_suspended`, `invalid_refresh`...). Stable; clients should switch on this, not on `title`.
         requestId:
           type: string
           format: uuid

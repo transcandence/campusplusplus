@@ -2,9 +2,7 @@
 COMPOSE_FILE ?= infra/compose/docker-compose.yml
 SERVICES_DIR ?= services
 SERVICES      = identity housing transport
-
-# Services that have a real contracts/openapi.yaml.
-# Add housing / transport here once their spec is filled in.
+svc ?= all
 GEN_SERVICES  = identity
 GEN_FILES     = $(foreach s,$(GEN_SERVICES),$(SERVICES_DIR)/$(s)/api/internal/handler/generated.go)
 
@@ -15,30 +13,47 @@ GO             ?= go
 GO_MIGRATE     ?= $(GO) run ./cmd/migrate
 LINTER         ?= golangci-lint run
 CODEGEN        ?= $(GO) run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.4.1
-#NOTE: stable instead of latest
 
-# A bare `make` prints the target list instead of running `up`
+# NOTE: stable instead of latest
 .DEFAULT_GOAL := help
-
-# Remove a half-written output file if a recipe fails
 .DELETE_ON_ERROR:
 
-.PHONY: help up down test gen gen-go gen-ts check-gen lint migrate $(addprefix migrate-up-,$(SERVICES)) $(addprefix migrate-down-,$(SERVICES)) $(addprefix migrate-version-,$(SERVICES)) test-gateway test-platform $(addprefix test-service-,$(SERVICES))
+.PHONY: help up down test gen gen-go check-gen lint migrate \
+        $(addprefix migrate-up-,$(SERVICES)) \
+        $(addprefix migrate-down-,$(SERVICES)) \
+        $(addprefix migrate-version-,$(SERVICES)) \
+        test-gateway test-platform \
+        $(addprefix test-service-,$(SERVICES))
 
+##@ Getting started
 help:
-	@echo "targets: up down test gen gen-go gen-ts check-gen lint migrate"
+	@printf '\nUsage: make <target> [VAR=value ...]\n'
+	@printf 'Run a bare `make` to print this list.\n\n'
+	@awk 'BEGIN {FS = ":.*##"} \
+		/^[a-zA-Z_0-9-]+:.*?##/ { printf "  %-30s %s\n", $$1, $$2 } \
+		/^##@/ { printf "\n%s\n", substr($$0, 5) }' $(MAKEFILE_LIST)
+	@printf '\nCommon variables (override on the command line)\n'
+	@printf '  %-30s %s\n' 'svc=<profile>'    'compose profile: all | identity | housing | transport (default: $(svc))'
+	@printf '  %-30s %s\n' 'SERVICES=...'     'services for test/migrate (default: $(SERVICES))'
+	@printf '  %-30s %s\n' 'GEN_SERVICES=...' 'services with OpenAPI codegen (default: $(GEN_SERVICES))'
+	@printf '  %-30s %s\n' 'COMPOSE_FILE=...' 'compose file (default: $(COMPOSE_FILE))'
+	@printf '\nExamples:\n'
+	@printf '  make up svc=identity\n'
+	@printf '  make test-service-identity\n'
+	@printf '  make migrate-up-housing\n\n'
 
+##@ Lifecycle
 up:
 	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile $(svc) up -d
+
 down:
 	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile $(svc) down
 
-# Global test runs everything in sequence
+##@ Testing
 test: test-gateway test-platform $(addprefix test-service-,$(SERVICES))
 	@echo "Running TypeScript tests..."
 	$(PNPM) --recursive test
 
-# Individual test targets
 test-gateway:
 	cd api-gateway && $(GO) test ./...
 
@@ -48,28 +63,25 @@ test-platform:
 $(addprefix test-service-,$(SERVICES)): test-service-%:
 	cd $(SERVICES_DIR)/$*/api && $(GO) test ./...
 
-# --- Code Generation ---
+##@ Code generation
 gen: gen-go
 
 gen-go: $(GEN_FILES)
 
-# One rule per generated.go, rebuilt only when its openapi.yaml changes
 $(SERVICES_DIR)/%/api/internal/handler/generated.go: $(SERVICES_DIR)/%/contracts/openapi.yaml
 	@echo "  -> $*"
 	@mkdir -p $(@D)
 	@$(CODEGEN) -generate types,gin-server -package handler -o $@ $<
 
-# CI: fail if generated code is out of date
 check-gen: gen
 	@git diff --exit-code -- $(GEN_FILES) || (echo "generated code is stale, run make gen"; exit 1)
 
+##@ Quality
 lint:
 	$(LINTER)
 	$(PNPM) --recursive run lint
 
-# --- Database Migrations ---
-migrate: $(addprefix migrate-up-,$(SERVICES))
-
+##@ Database migrations
 $(addprefix migrate-up-,$(SERVICES)): migrate-up-%:
 	cd $(SERVICES_DIR)/$*/api && set -a && . ./.env && set +a && $(GO_MIGRATE) up
 
@@ -78,8 +90,3 @@ $(addprefix migrate-down-,$(SERVICES)): migrate-down-%:
 
 $(addprefix migrate-version-,$(SERVICES)): migrate-version-%:
 	cd $(SERVICES_DIR)/$*/api && set -a && . ./.env && set +a && $(GO_MIGRATE) version
-
-# gen-ts:
-	# @echo "Generating TypeScript frontend clients..."
-	# $(PNPM) gen
-

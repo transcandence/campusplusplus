@@ -4,8 +4,14 @@
 package handler
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 	openapi_types "github.com/oapi-codegen/runtime/types"
+)
+
+const (
+	BearerAuthScopes = "bearerAuth.Scopes"
 )
 
 // Defines values for TokenResponseTokenType.
@@ -13,15 +19,51 @@ const (
 	Bearer TokenResponseTokenType = "Bearer"
 )
 
+// Defines values for UserMeAffiliation.
+const (
+	ABS   UserMeAffiliation = "ABS"
+	AEM   UserMeAffiliation = "AEM"
+	CC    UserMeAffiliation = "CC"
+	FGSES UserMeAffiliation = "FGSES"
+	N1337 UserMeAffiliation = "1337"
+	SAS   UserMeAffiliation = "SAS"
+	SHBM  UserMeAffiliation = "SHBM"
+	Um6p  UserMeAffiliation = "um6p"
+)
+
+// Defines values for UserMeRole.
+const (
+	Admin   UserMeRole = "admin"
+	Guest   UserMeRole = "guest"
+	Staff   UserMeRole = "staff"
+	Student UserMeRole = "student"
+	Worker  UserMeRole = "worker"
+)
+
+// Defines values for UserMeStatus.
+const (
+	Active              UserMeStatus = "active"
+	PendingVerification UserMeStatus = "pending_verification"
+	Suspended           UserMeStatus = "suspended"
+)
+
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
+	// Email Case-insensitive (`Sara@campus.ma` and `sara@campus.ma` are the same account).
 	Email    openapi_types.Email `json:"email"`
 	Password *string             `json:"password,omitempty"`
 }
 
+// LogoutRequest defines model for LogoutRequest.
+type LogoutRequest struct {
+	// RefreshToken The refresh token for the session to end. Idempotent: an unknown
+	// or already-revoked token still returns `204`.
+	RefreshToken string `json:"refreshToken"`
+}
+
 // Problem defines model for Problem.
 type Problem struct {
-	// Code Machine-readable code for client logic (`invalid_credentials`, `account_suspended`...). Stable; clients should switch on this, not on `title`.
+	// Code Machine-readable code for client logic (`invalid_credentials`, `account_suspended`, `invalid_refresh`...). Stable; clients should switch on this, not on `title`.
 	Code *string `json:"code,omitempty"`
 
 	// Detail Explanation specific to this occurrence. Never leaks internals or stack traces.
@@ -41,22 +83,65 @@ type Problem struct {
 	Type string `json:"type"`
 }
 
+// RefreshRequest defines model for RefreshRequest.
+type RefreshRequest struct {
+	// RefreshToken The refresh token returned by `/auth/login` or by the previous
+	// successful `/auth/refresh`. Rotated on every successful refresh.
+	RefreshToken string `json:"refreshToken"`
+}
+
 // TokenResponse defines model for TokenResponse.
 type TokenResponse struct {
-	// AccessToken Short-lived JWT (about 15 minutes).
+	// AccessToken Short-lived JWT access token. Sent as
+	// `Authorization: Bearer <token>` on every authenticated request.
+	// Lifetime: 600 seconds (10 minutes).
 	AccessToken string `json:"accessToken"`
 
 	// ExpiresIn Access-token lifetime in seconds.
-	ExpiresIn int                    `json:"expiresIn"`
-	TokenType TokenResponseTokenType `json:"tokenType"`
+	ExpiresIn int `json:"expiresIn"`
+
+	// RefreshToken Long-lived opaque refresh token (30 days). Rotated on every
+	// successful `/auth/refresh`; the old token is invalidated
+	// immediately. The current deployment returns it in the response
+	// body. Store it in the most restrictive storage available (in a
+	// browser: `sessionStorage` at most, never `localStorage`; on
+	// mobile: the OS keychain). Do not log it.
+	RefreshToken string                 `json:"refreshToken"`
+	TokenType    TokenResponseTokenType `json:"tokenType"`
 }
 
 // TokenResponseTokenType defines model for TokenResponse.TokenType.
 type TokenResponseTokenType string
 
+// UserMe defines model for UserMe.
+type UserMe struct {
+	Affiliation UserMeAffiliation `json:"affiliation"`
+
+	// Campus Campus code (e.g. `rabat`), not the numeric id.
+	Campus    string              `json:"campus"`
+	CreatedAt time.Time           `json:"createdAt"`
+	Email     openapi_types.Email `json:"email"`
+	FirstName string              `json:"firstName"`
+
+	// Id The `users.id` value.
+	Id       int64        `json:"id"`
+	LastName string       `json:"lastName"`
+	Role     UserMeRole   `json:"role"`
+	Status   UserMeStatus `json:"status"`
+}
+
+// UserMeAffiliation defines model for UserMe.Affiliation.
+type UserMeAffiliation string
+
+// UserMeRole defines model for UserMe.Role.
+type UserMeRole string
+
+// UserMeStatus defines model for UserMe.Status.
+type UserMeStatus string
+
 // ValidationProblem defines model for ValidationProblem.
 type ValidationProblem struct {
-	// Code Machine-readable code for client logic (`invalid_credentials`, `account_suspended`...). Stable; clients should switch on this, not on `title`.
+	// Code Machine-readable code for client logic (`invalid_credentials`, `account_suspended`, `invalid_refresh`...). Stable; clients should switch on this, not on `title`.
 	Code *string `json:"code,omitempty"`
 
 	// Detail Explanation specific to this occurrence. Never leaks internals or stack traces.
@@ -96,11 +181,29 @@ type ValidationError = ValidationProblem
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
+// LogoutJSONRequestBody defines body for Logout for application/json ContentType.
+type LogoutJSONRequestBody = LogoutRequest
+
+// RefreshJSONRequestBody defines body for Refresh for application/json ContentType.
+type RefreshJSONRequestBody = RefreshRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Log in with email and password
 	// (POST /auth/login)
 	Login(c *gin.Context)
+	// End the current session
+	// (POST /auth/logout)
+	Logout(c *gin.Context)
+	// End every session for the current user
+	// (POST /auth/logout-all)
+	LogoutAll(c *gin.Context)
+	// Exchange a refresh token for new tokens
+	// (POST /auth/refresh)
+	Refresh(c *gin.Context)
+	// Get the current user
+	// (GET /me)
+	GetMe(c *gin.Context)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -123,6 +226,62 @@ func (siw *ServerInterfaceWrapper) Login(c *gin.Context) {
 	}
 
 	siw.Handler.Login(c)
+}
+
+// Logout operation middleware
+func (siw *ServerInterfaceWrapper) Logout(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.Logout(c)
+}
+
+// LogoutAll operation middleware
+func (siw *ServerInterfaceWrapper) LogoutAll(c *gin.Context) {
+
+	c.Set(BearerAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.LogoutAll(c)
+}
+
+// Refresh operation middleware
+func (siw *ServerInterfaceWrapper) Refresh(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.Refresh(c)
+}
+
+// GetMe operation middleware
+func (siw *ServerInterfaceWrapper) GetMe(c *gin.Context) {
+
+	c.Set(BearerAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetMe(c)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -153,4 +312,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	}
 
 	router.POST(options.BaseURL+"/auth/login", wrapper.Login)
+	router.POST(options.BaseURL+"/auth/logout", wrapper.Logout)
+	router.POST(options.BaseURL+"/auth/logout-all", wrapper.LogoutAll)
+	router.POST(options.BaseURL+"/auth/refresh", wrapper.Refresh)
+	router.GET(options.BaseURL+"/me", wrapper.GetMe)
 }
