@@ -1,0 +1,8 @@
+.git
+.gitignore
+.env
+.env.example
+README.md
+identity_service
+*.test
+*.out
