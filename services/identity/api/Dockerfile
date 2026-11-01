@@ -11,7 +11,7 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux \
     go build -trimpath -ldflags="-s -w" \
-    -o /identity_service ./cmd/server/main.go
+    -o /identity_service ./cmd/server
 
 # Stage 2: Minimal runtime image
 FROM alpine:3.22 AS runtime

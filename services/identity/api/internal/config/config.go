@@ -8,22 +8,19 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/joho/godotenv"
 )
 
-// Config is the identity service's runtime configuration.
-// Every field is sourced from an environment variable (see .env.example).
 type Config struct {
-	// HTTP
-	HTTPAddr string // HTTP_ADDR, default ":8080"
-	Env      string // ENV, "dev" | "prod"
+	HTTPAddr string
+	Env      string
 
-	// Database
-	DatabaseURL string // DATABASE_URL, required
-	DBMaxConns  int    // DB_MAX_CONNS, default 10
+	DatabaseURL string
+	DBMaxConns  int
 
 	// JWT
 	//
@@ -31,30 +28,16 @@ type Config struct {
 	// reviewed. When auth.LoadKeys exists, JWTSecret becomes JWTKeyPath
 	// (or a KMS reference) and Load() calls into auth instead of holding
 	// the raw secret.
-	JWTSecret     string        // JWT_SECRET, required
-	JWTAccessTTL  time.Duration // JWT_ACCESS_TTL, default 10m
-	JWTRefreshTTL time.Duration // JWT_REFRESH_TTL, default 720h (30d)
-	JWTIssuer     string        // JWT_ISSUER, default "campus-identity"
-	JWTAudience   string        // JWT_AUDIENCE, default "campus-api"
-
-	// Rate limiting (loose — middleware reads these, spec doesn't promise numbers)
-	RateLimitLoginPerMin int // RATE_LIMIT_LOGIN_PER_MIN, default 10
-
-	// Observability
-	LogLevel string // LOG_LEVEL, "debug" | "info" | "warn" | "error", default "info"
+	//
+	JWTSecret            string
+	JWTAccessTTL         time.Duration
+	JWTRefreshTTL        time.Duration
+	JWTIssuer            string
+	JWTAudience          string
+	RateLimitLoginPerMin int
+	LogLevel             string
 }
 
-// Load reads the environment and returns a validated Config.
-//
-// It loads .env from the current directory if present (best-effort: a
-// missing file is not an error, because in production there is no .env and
-// in dev the Makefile may have already sourced it). A malformed .env is an
-// error, so typos fail loudly instead of masquerading as "DATABASE_URL not
-// set".
-//
-// Load fails fast: a missing required variable is an error, not a zero
-// value. This is intentional — a zero-valued Config would fail later,
-// somewhere less obvious.
 func Load() (*Config, error) {
 	if err := loadDotenv(); err != nil {
 		return nil, err
@@ -94,15 +77,27 @@ func Load() (*Config, error) {
 	return c, nil
 }
 
-// loadDotenv loads .env from the current directory if present.
-// godotenv does not override variables that are already set, so an explicit
-// `export DATABASE_URL=...` always wins over .env.
 func loadDotenv() error {
-	err := godotenv.Load(".env")
-	if err == nil || os.IsNotExist(err) {
-		return nil
+	dir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getting working directory: %w", err)
 	}
-	return fmt.Errorf("loading .env: %w", err)
+
+	for {
+		candidate := filepath.Join(dir, ".env")
+		err := godotenv.Load(candidate)
+		if err == nil {
+			return nil
+		}
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("loading %s: %w", candidate, err)
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return nil
+		}
+		dir = parent
+	}
 }
 
 func getenv(key, fallback string) string {

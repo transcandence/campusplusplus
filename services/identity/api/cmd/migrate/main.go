@@ -28,18 +28,11 @@ func run(args []string) error {
 		return fmt.Errorf("usage: migrate <up|down [steps]|version|force <version>>")
 	}
 
-	// Load config. This also loads .env from the current directory.
-	// JWT_SECRET is not required for migrations, but config.Load requires
-	// it; if you want migration-only environments, add a LoadForMigrate()
-	// that validates DATABASE_URL alone.
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	// golang-migrate's pgx/v5 driver registers the "pgx5://" scheme, not
-	// "postgres://". Rewrite so .env can keep the standard scheme that
-	// pgx.Connect (used by cmd/server) expects.
 	dbURL := toPgx5URL(cfg.DatabaseURL)
 
 	m, err := migrate.New("file://"+migrationsDir, dbURL)
@@ -122,9 +115,6 @@ func cmdForce(m *migrate.Migrate, args []string) error {
 	return nil
 }
 
-// toPgx5URL rewrites a postgres:// URL to the pgx5:// scheme that
-// golang-migrate's pgx/v5 driver registers. URLs that already use pgx5://
-// are returned unchanged.
 func toPgx5URL(url string) string {
 	if strings.HasPrefix(url, "pgx5://") {
 		return url
