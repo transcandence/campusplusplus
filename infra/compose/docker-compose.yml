@@ -13,6 +13,23 @@ services:
       - all
     networks:
       - app_net
+  
+  identity:
+    build:
+      context: ../../services/identity/api
+      dockerfile: Dockerfile
+    expose:
+      - "8080"
+    env_file:
+      - ../../services/identity/api/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - identity
+      - all
+    networks:
+      - app_net
 
   postgres:
     image: postgres:17
