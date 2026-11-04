@@ -1,6 +1,13 @@
 package model
 
-import "net/http"
+import (
+	"errors"
+	"net/http"
+)
+
+var (
+	ErrUserNotFound = errors.New("user not found")
+)
 
 type Problem struct {
 	Type      string `json:"type"`
