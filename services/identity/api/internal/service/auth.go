@@ -1,3 +1,5 @@
+// Package service implements the core identity business logic, including
+// user authentication, session management, and JWT token issuance.
 package service
 
 import (
@@ -45,8 +47,6 @@ type TokenPair struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-// Login authenticates a user by email and password, creates an active session
-// with a hashed refresh token, and returns a signed access token and raw refresh token pair.
 func (s *AuthService) Login(
 	ctx context.Context,
 	email string,
@@ -80,7 +80,6 @@ func (s *AuthService) Login(
 		return nil, model.ErrInvalidCredentials
 	}
 
-	// Generate opaque refresh token and persist only its SHA-256 hash.
 	rawRefreshToken, err := auth.GenerateOpaqueRefreshToken()
 	if err != nil {
 		return nil, fmt.Errorf("generating refresh token: %w", err)
@@ -99,12 +98,13 @@ func (s *AuthService) Login(
 		return nil, fmt.Errorf("creating session: %w", err)
 	}
 
-	// Issue short-lived RS256 JWT access token.
 	accessToken, err := auth.GenerateAccessToken(
-		int(user.ID),
+		user.ID,
+		sess.ID,
+		user.CampusID,
+		string(user.Role),
 		sess.FamilyID,
-		int(user.CampusID),
-		int(sess.ID),
+		s.accessTTL,
 		s.privateKey,
 	)
 	if err != nil {

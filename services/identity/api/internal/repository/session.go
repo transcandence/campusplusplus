@@ -83,12 +83,30 @@ func (r *SessionRepository) Rotate(ctx context.Context, oldSessionID int64, newS
 		_ = tx.Rollback(ctx)
 	}()
 
+	const updateQuery = `
+		UPDATE sessions
+		   SET revoked_at   = now(),
+		       rotated_at   = now(),
+		       last_used_at = now(),
+		       replaced_by  = $1
+		 WHERE id = $2
+		   AND revoked_at IS NULL;
+	`
+	cmdTag, err := tx.Exec(ctx, updateQuery, newSession.ID, oldSessionID)
+	if err != nil {
+		return fmt.Errorf("session repo rotate update old: %w", err)
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return model.ErrSessionNotFound
+	}
+
 	const insertQuery = `
 		INSERT INTO sessions (user_id, token_hash, ip_address, user_agent, expires_at, family_id)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at, updated_at;
-		`
-	err = tx.QueryRow(ctx, insertQuery, newSession.UserID,
+	`
+	err = tx.QueryRow(ctx, insertQuery,
+		newSession.UserID,
 		newSession.TokenHash,
 		newSession.IPAddress,
 		newSession.UserAgent,
@@ -96,20 +114,9 @@ func (r *SessionRepository) Rotate(ctx context.Context, oldSessionID int64, newS
 		newSession.FamilyID,
 	).Scan(&newSession.ID, &newSession.CreatedAt, &newSession.UpdatedAt)
 	if err != nil {
-		return fmt.Errorf("session repo rotate insert %w", err)
+		return fmt.Errorf("session repo rotate insert: %w", err)
 	}
 
-	const updateQuery = `
-		UPDATE sessions
-		   SET revoked_at = now(),
-		       rotated_at = now(),
-		       replaced_by = $1
-		 WHERE id = $2;
-	`
-	_, err = tx.Exec(ctx, updateQuery, newSession.ID, oldSessionID)
-	if err != nil {
-		return fmt.Errorf("session repo rotate update old: %w", err)
-	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("session repo rotate commit: %w", err)
 	}
