@@ -10,18 +10,18 @@ import (
 )
 
 type Claims struct {
-	UserID   int       `json:"user_id"`
-	FamilyID uuid.UUID `json:"family_id"`
-	CampusID int       `json:"campus_id"`
-	SessionID int      `json:"session_id"`
+	UserID    int       `json:"user_id"`
+	FamilyID  uuid.UUID `json:"family_id"`
+	CampusID  int       `json:"campus_id"`
+	SessionID int       `json:"session_id"`
 	jwt.RegisteredClaims
 }
 
-func GenerateAccessToken(userID int, familyID uuid.UUID, campusID int,sessionID int, privateKey *rsa.PrivateKey) (string, error) {
+func GenerateAccessToken(userID int, familyID uuid.UUID, campusID int, sessionID int, privateKey *rsa.PrivateKey) (string, error) {
 	claims := Claims{
-		UserID:   userID,
-		FamilyID: familyID,
-		CampusID: campusID,
+		UserID:    userID,
+		FamilyID:  familyID,
+		CampusID:  campusID,
 		SessionID: sessionID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
@@ -45,7 +45,7 @@ func VerifyAccessToken(tokenString string, publicKey *rsa.PublicKey) (*Claims, e
 	}
 	claims, ok := token.Claims.(*Claims)
 	if !ok || !token.Valid {
-		return nil, errors.New("Invalid token claims")
+		return nil, errors.New("invalid token claims")
 	}
 	return claims, nil
 }

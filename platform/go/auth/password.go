@@ -11,10 +11,7 @@ func HashPassword(password string) (string, error) {
 	}
 	return string(bytes), nil
 }
-//Pour endpoint /auth/login 
-//if !auth.CheckPassword(loginRequest.Password, user.PasswordHash) {
-//    return errors.New("invalid_credentials: mot de passe incorrect")
-//}
+
 func CheckPassword(password string, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil

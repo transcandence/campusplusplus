@@ -69,5 +69,3 @@ func LoadPublicKey(path string) (*rsa.PublicKey, error) {
 	}
 	return key, nil
 }
-
-
