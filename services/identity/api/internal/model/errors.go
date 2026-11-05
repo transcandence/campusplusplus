@@ -6,8 +6,12 @@ import (
 )
 
 var (
-	ErrUserNotFound    = errors.New("user not found")
-	ErrSessionNotFound = errors.New("session not found")
+	ErrUserNotFound       = errors.New("user not found")
+	ErrSessionNotFound    = errors.New("session not found")
+	ErrInvalidCredentials = errors.New("invalid email or password")
+	ErrInvalidRefresh     = errors.New("invalid or expired refresh token")
+	ErrAccountSuspended   = errors.New("account is suspended")
+	ErrAccountPending     = errors.New("account email pending verification")
 )
 
 type Problem struct {
