@@ -1,62 +1,74 @@
 package main
 
 import (
-    "fmt"
-    "log"
-    "os"
-
-    "github.com/transcandence/campusplusplus/platform/go/auth"
+	"fmt"
+	"log"
+	"github.com/google/uuid"
+	"github.com/transcandence/campusplusplus/platform/go/auth"
 )
-
+ 
 func main() {
-    fmt.Println("=== 🚀 Démarrage du test du système d'authentification ===")
-
-    privateKeyPath := os.Getenv("JWT_PRIVATE_KEY_PATH")
-    if privateKeyPath == "" {
-        privateKeyPath = "tests/private.pem"
-    }
-
-    publicKeyPath := os.Getenv("JWT_PUBLIC_KEY_PATH")
-    if publicKeyPath == "" {
-        publicKeyPath = "tests/public.pem"
-    }
-
-    privateKey, err := auth.LoadPrivateKey(privateKeyPath)
-    if err != nil {
-        log.Fatalf("❌ Erreur chargement clé privée: %v", err)
-    }
-    fmt.Println(" [OK] Clé privée chargée avec succès.")
-    publicKey, err := auth.LoadPublicKey(publicKeyPath)
-    if err != nil {
-        log.Fatalf("❌ Erreur chargement clé publique: %v", err)
-    }
-    fmt.Println(" [OK] Clé publique chargée avec succès.")
-
-    userID := 42
-    role := "student"
-
-    tokenString, err := auth.GenerateAccessToken(userID, role, privateKey)
-    if err != nil {
-        log.Fatalf("❌ Erreur génération token: %v", err)
-    }
-    fmt.Printf(" [OK] Token généré avec succès :\n      %s\n", tokenString)
-
-    claims, err := auth.VerifyAccessToken(tokenString, publicKey)
-    if err != nil {
-        log.Fatalf("❌ Erreur vérification token valide: %v", err)
-    }
-    fmt.Println(" [OK] Token vérifié avec succès par le 'vigile' !")
-    fmt.Printf("      -> Utilisateur ID (sub) : %d\n", claims.UserID)
-    fmt.Printf("      -> Rôle : %s\n", claims.Role)
-    fmt.Printf("      -> Expire à : %v\n", claims.ExpiresAt.Time)
-
-    fakeTokenString := tokenString + "tricherie"
-    _, err = auth.VerifyAccessToken(fakeTokenString, publicKey)
-    if err != nil {
-        fmt.Println(" [OK] Test de sécurité réussi : Le token falsifié a bien été rejeté !")
-    } else {
-        log.Fatal(" [ALERTE] Le token falsifié a été accepté !")
-    }
-
-    fmt.Println("\n=== ✨ Tout fonctionne à la perfection ! ===")
+	fmt.Println("=== 1. Génération des clés RSA ===")
+	err := auth.GenerateKeys()
+	if err != nil {
+		log.Fatalf("Erreur génération des clés : %v", err)
+	}
+	fmt.Println("-> Clés privées et publiques générées avec succès (private.pem / public.pem)")
+	fmt.Println("\n=== 2. Chargement des clés ===")
+	privateKey, err := auth.LoadPrivateKey("private.pem")
+	if err != nil {
+		log.Fatalf("Erreur chargement clé privée : %v", err)
+	}
+	publicKey, err := auth.LoadPublicKey("public.pem")
+	if err != nil {
+		log.Fatalf("Erreur chargement clé publique : %v", err)
+	}
+	fmt.Println("-> Clés chargées en mémoire avec succès.")
+	fmt.Println("\n=== 3. Génération d'un Access Token (JWT) ===")
+	userID := 42
+	familyID := uuid.New()
+	campusID := 1
+	sessionID := 43
+	accessToken, err := auth.GenerateAccessToken(userID, familyID, campusID, sessionID, privateKey)
+	if err != nil {
+		log.Fatalf("Erreur génération JWT : %v", err)
+	}
+	fmt.Printf("-> JWT généré :\n%s\n", accessToken)
+	fmt.Println("\n=== 4. Vérification et Décodage du JWT ===")
+	claims, err := auth.VerifyAccessToken(accessToken, publicKey)
+	if err != nil {
+		log.Fatalf("Erreur vérification JWT : %v", err)
+	}
+	fmt.Printf("-> Token valide ! Claims extraits :\n")
+	fmt.Printf("   - User ID  : %d\n", claims.UserID)
+	fmt.Printf("   - Family ID: %s\n", claims.FamilyID)
+	fmt.Printf("   - Campus ID: %d\n", claims.CampusID)
+	fmt.Printf("   - ExpiresAt: %v\n", claims.ExpiresAt.Time)
+ 
+	fmt.Println("\n=== 5. Test des Opaque Refresh Tokens ===")
+	rawRT, err := auth.GenerateOpaqueRefreshToken()
+	if err != nil {
+		log.Fatalf("Erreur génération refresh token : %v", err)
+	}
+	fmt.Printf("-> Refresh Token brut (à envoyer au client) : %s\n", rawRT)
+ 
+	hashedRT := auth.HashRefreshToken(rawRT)
+	fmt.Printf("-> Refresh Token haché (pour la colonne BYTEA) : %x\n", hashedRT)
+	fmt.Printf("   (Taille du hash : %d octets)\n", len(hashedRT))
+ 
+	fmt.Println("\n=== 6. Test du Hachage & Vérification de Mot de Passe (Bcrypt) ===")
+	plainPassword := "MonSuperMotDePasse123!"
+	 
+	hashedPassword, err := auth.HashPassword(plainPassword)
+	if err != nil {
+		log.Fatalf("Erreur hachage mot de passe : %v", err)
+	}
+	fmt.Printf("-> Mot de passe en clair : %s\n", plainPassword)
+	fmt.Printf("-> Hash bcrypt stocké    : %s\n", hashedPassword)
+ 
+	isMatchCorrect := auth.CheckPassword(plainPassword, hashedPassword)
+	fmt.Printf("-> Test avec le BON mot de passe   -> Résultat (doit être true) : %v\n", isMatchCorrect)
+ 
+	isMatchWrong := auth.CheckPassword("MauvaisMotDePasse", hashedPassword)
+	fmt.Printf("-> Test avec le MAUVAIS mot de passe -> Résultat (doit être false): %v\n", isMatchWrong)
 }
