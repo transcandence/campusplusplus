@@ -49,11 +49,11 @@ func GenerateKeys() error {
 func LoadPrivateKey(path string) (*rsa.PrivateKey, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read private key file: %w", err)
+		return nil, fmt.Errorf("failed to read private key file: %w", err)
 	}
 	key, err := jwt.ParseRSAPrivateKeyFromPEM(data)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse private key: %w", err)
+		return nil, fmt.Errorf("failed to parse private key: %w", err)
 	}
 	return key, nil
 }
@@ -61,11 +61,11 @@ func LoadPrivateKey(path string) (*rsa.PrivateKey, error) {
 func LoadPublicKey(path string) (*rsa.PublicKey, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read public key file: %w", err)
+		return nil, fmt.Errorf("failed to read public key file: %w", err)
 	}
 	key, err := jwt.ParseRSAPublicKeyFromPEM(data)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse public key: %w", err)
+		return nil, fmt.Errorf("failed to parse public key: %w", err)
 	}
 	return key, nil
 }
