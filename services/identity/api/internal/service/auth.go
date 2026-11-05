@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/transcandence/campusplusplus/platform/go/auth"
 	"github.com/transcandence/campusplusplus/services/identity/api/internal/model"
 	"github.com/transcandence/campusplusplus/services/identity/api/internal/repository"
 )
@@ -44,6 +45,8 @@ type TokenPair struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+// Login authenticates a user by email and password, creates an active session
+// with a hashed refresh token, and returns a signed access token and raw refresh token pair.
 func (s *AuthService) Login(
 	ctx context.Context,
 	email string,
@@ -57,10 +60,15 @@ func (s *AuthService) Login(
 		if errors.Is(err, model.ErrUserNotFound) {
 			return nil, model.ErrInvalidCredentials
 		}
-		return nil, fmt.Errorf("finding user %w", err)
+		return nil, fmt.Errorf("finding user: %w", err)
 	}
-	// NOTE: there is a function still not implemeted yet the function checks if the hash match the real hash
 
+	// Verify password against stored bcrypt hash.
+	if !auth.CheckPassword(password, user.PasswordHash) {
+		return nil, model.ErrInvalidCredentials
+	}
+
+	// Guard account status before issuing credentials.
 	switch user.Status {
 	case model.StatusSuspended:
 		return nil, model.ErrAccountSuspended
@@ -71,8 +79,13 @@ func (s *AuthService) Login(
 	default:
 		return nil, model.ErrInvalidCredentials
 	}
-	// NOTE: call refresh token generation function
 
+	// Generate opaque refresh token and persist only its SHA-256 hash.
+	rawRefreshToken, err := auth.GenerateOpaqueRefreshToken()
+	if err != nil {
+		return nil, fmt.Errorf("generating refresh token: %w", err)
+	}
+	tokenHash := auth.HashRefreshToken(rawRefreshToken)
 	now := time.Now().UTC()
 	sess := &model.Session{
 		UserID:    user.ID,
@@ -83,15 +96,25 @@ func (s *AuthService) Login(
 		FamilyID:  uuid.New(),
 	}
 	if err := s.sessionRepo.Create(ctx, sess); err != nil {
-		return nil, fmt.Errorf("creating session %w", err)
+		return nil, fmt.Errorf("creating session: %w", err)
 	}
 
-	// NOTE: call generate access token
+	// Issue short-lived RS256 JWT access token.
+	accessToken, err := auth.GenerateAccessToken(
+		int(user.ID),
+		sess.FamilyID,
+		int(user.CampusID),
+		int(sess.ID),
+		s.privateKey,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("generating access token: %w", err)
+	}
 
-	// return &TokenPair{
-	// 	TokenType:    "Bearer",
-	// 	AccessToken:  accessToken,
-	// 	ExpiresIn:    int(s.accessTTL.Seconds()),
-	// 	RefreshToken: rawRefreshToken,
-	// }, nil
+	return &TokenPair{
+		TokenType:    "Bearer",
+		AccessToken:  accessToken,
+		ExpiresIn:    int(s.accessTTL.Seconds()),
+		RefreshToken: rawRefreshToken,
+	}, nil
 }

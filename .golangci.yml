@@ -1,18 +1,9 @@
-run:
-  timeout: 5m
-  tests: true
+version: "2"
 
 linters:
   enable:
     - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
     - unused
-    - misspell
-    - gofmt
-
-linters-settings:
-  govet:
-    check-shadowing: true

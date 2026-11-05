@@ -79,7 +79,9 @@ func (r *SessionRepository) Rotate(ctx context.Context, oldSessionID int64, newS
 	if err != nil {
 		return fmt.Errorf("session repo rotate begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
 	const insertQuery = `
 		INSERT INTO sessions (user_id, token_hash, ip_address, user_agent, expires_at, family_id)
