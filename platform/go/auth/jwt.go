@@ -1,3 +1,6 @@
+// Package auth provides core cryptographic authentication primitives, including
+// RS256 JWT access token generation and verification, RSA keypair management,
+// bcrypt password hashing, and high-entropy opaque refresh token hashing.
 package auth
 
 import (
