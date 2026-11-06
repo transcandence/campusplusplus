@@ -20,7 +20,7 @@ func GenerateKeys() error {
 	if err != nil {
 		return err
 	}
-	defer privateFile.Close()
+	defer func() { _ = privateFile.Close() }()
 
 	privateBlock := &pem.Block{
 		Type:  "RSA PRIVATE KEY",
@@ -38,7 +38,7 @@ func GenerateKeys() error {
 	if err != nil {
 		return err
 	}
-	defer publicFile.Close()
+	defer func() { _ = publicFile.Close() }()
 	publicBlock := &pem.Block{
 		Type:  "PUBLIC KEY",
 		Bytes: publicBytes,
@@ -69,5 +69,3 @@ func LoadPublicKey(path string) (*rsa.PublicKey, error) {
 	}
 	return key, nil
 }
-
-

@@ -2,17 +2,9 @@ package auth
 
 import (
 	"crypto/rand"
-	"crypto/rsa"
-	"context"
-	"database/sql"
-	"errors"
-	"time"
 	"crypto/sha256"
 	"encoding/base64"
-	"github.com/google/uuid"
 )
-
-
 
 func GenerateOpaqueRefreshToken() (string, error) {
 	b := make([]byte, 32)
@@ -25,5 +17,5 @@ func GenerateOpaqueRefreshToken() (string, error) {
 
 func HashRefreshToken(rawToken string) []byte {
 	hash := sha256.Sum256([]byte(rawToken))
-	return hash[:] 
+	return hash[:]
 }
