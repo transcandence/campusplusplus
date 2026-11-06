@@ -1,29 +1,103 @@
-// Command server runs the identity service HTTP API.
 package main
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/transcandence/campusplusplus/platform/go/auth"
 	"github.com/transcandence/campusplusplus/services/identity/api/internal/config"
+	"github.com/transcandence/campusplusplus/services/identity/api/internal/handler"
+	"github.com/transcandence/campusplusplus/services/identity/api/internal/repository"
+	"github.com/transcandence/campusplusplus/services/identity/api/internal/service"
 )
 
 func main() {
-	cfg, err := config.Load()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error loading config:", err)
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "server error: %v\n", err)
 		os.Exit(1)
 	}
+}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprintln(w, "hello world")
+func run() error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+	// Database connection pool
+	poolConfig, err := pgxpool.ParseConfig(cfg.DatabaseURL)
+	if err != nil {
+		return fmt.Errorf("parsing database url: %w", err)
+	}
+	poolConfig.MaxConns = int32(cfg.DBMaxConns)
+	dbPool, err := pgxpool.NewWithConfig(ctx, poolConfig)
+	if err != nil {
+		return fmt.Errorf("connecting to database: %w", err)
+	}
+	defer dbPool.Close()
+	if err := dbPool.Ping(ctx); err != nil {
+		return fmt.Errorf("pinging database: %w", err)
+	}
+	// RSA Keypair for JWT issuance and verification
+	privKeyPath := cfg.JWTPrivateKeyPath
+	pubKeyPath := cfg.JWTPublicKeyPath
+
+	if _, err := os.Stat(privKeyPath); os.IsNotExist(err) {
+		if cfg.Env == "prod" {
+			return fmt.Errorf("private key not found at %s in production: provision keys before starting", privKeyPath)
+		}
+		// In dev, auto-generate so local onboarding works out of the box
+		fmt.Fprintf(os.Stderr, "WARNING: RSA keys not found at %s. Generating local development keys...\n", privKeyPath)
+		if err := auth.GenerateKeys(); err != nil {
+			return fmt.Errorf("generating dev rsa keys: %w", err)
+		}
+	}
+
+	privateKey, err := auth.LoadPrivateKey(privKeyPath)
+	if err != nil {
+		return fmt.Errorf("loading private key from %s: %w", privKeyPath, err)
+	}
+
+	publicKey, err := auth.LoadPublicKey(pubKeyPath)
+	if err != nil {
+		return fmt.Errorf("loading public key from %s: %w", pubKeyPath, err)
+	}
+	userRepo := repository.NewUserRepository(dbPool)
+	sessionRepo := repository.NewSessionRepository(dbPool)
+	authService := service.NewAuthService(
+		userRepo,
+		sessionRepo,
+		privateKey,
+		cfg.JWTAccessTTL,
+		cfg.JWTRefreshTTL,
+	)
+	authHandler := handler.NewAuthHandler(authService, publicKey)
+	if cfg.Env == "prod" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.Use(gin.Logger())
+	router.Use(handler.RequestIDMiddleware())
+	router.Use(handler.CORSMiddleware())
+
+	router.GET("/healthz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	log.Printf("listening on %s (env=%s)", cfg.HTTPAddr, cfg.Env)
-	if err := http.ListenAndServe(cfg.HTTPAddr, mux); err != nil {
-		log.Fatal(err)
-	}
+	handler.RegisterHandlersWithOptions(router, authHandler, handler.GinServerOptions{
+		Middlewares: []handler.MiddlewareFunc{
+			handler.BearerAuthMiddleware(publicKey),
+		},
+	})
+	return nil
 }
