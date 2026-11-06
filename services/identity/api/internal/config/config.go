@@ -19,7 +19,6 @@ type Config struct {
 	Env                  string
 	DatabaseURL          string
 	DBMaxConns           int
-	JWTSecret            string
 	JWTPrivateKeyPath    string
 	JWTPublicKeyPath     string
 	JWTAccessTTL         time.Duration
@@ -40,7 +39,6 @@ func Load() (*Config, error) {
 		Env:               getenv("ENV", "dev"),
 		DatabaseURL:       os.Getenv("DATABASE_URL"),
 		DBMaxConns:        getenvInt("DB_MAX_CONNS", 10),
-		JWTSecret:         os.Getenv("JWT_SECRET"),
 		JWTPrivateKeyPath: getenv("JWT_PRIVATE_KEY_PATH", "private.pem"),
 		JWTPublicKeyPath:  getenv("JWT_PUBLIC_KEY_PATH", "public.pem"),
 		JWTIssuer:         getenv("JWT_ISSUER", "campus-identity"),
@@ -60,12 +58,6 @@ func Load() (*Config, error) {
 	// Required fields.
 	if c.DatabaseURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL is required")
-	}
-	if c.JWTSecret == "" {
-		return nil, fmt.Errorf("JWT_SECRET is required")
-	}
-	if len(c.JWTSecret) < 32 {
-		return nil, fmt.Errorf("JWT_SECRET must be at least 32 bytes (got %d)", len(c.JWTSecret))
 	}
 
 	return c, nil

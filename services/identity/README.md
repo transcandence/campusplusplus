@@ -26,7 +26,6 @@ Authentication and session lifecycle management for the Campus++ platform.
 | Variable | Default | Description |
 |---|---|---|
 | `DATABASE_URL` | *(required)* | PostgreSQL connection string (`postgres://...`). |
-| `JWT_SECRET` | *(required)* | Secret string ($\ge$ 32 bytes). |
 | `JWT_PRIVATE_KEY_PATH` | `private.pem` | RSA private key path for signing JWTs. |
 | `JWT_PUBLIC_KEY_PATH` | `public.pem` | RSA public key path for verifying JWTs. |
 | `HTTP_ADDR` | `:8080` | Bind address. |
