@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/transcandence/campusplusplus/platform/go/auth"
 )
@@ -25,11 +27,13 @@ func main() {
 	}
 	fmt.Println("-> Clés chargées en mémoire avec succès.")
 	fmt.Println("\n=== 3. Génération d'un Access Token (JWT) ===")
-	userID := 42
+	userID := int64(42)
 	familyID := uuid.New()
-	campusID := 1
-	sessionID := 43
-	accessToken, err := auth.GenerateAccessToken(userID, familyID, campusID, sessionID, privateKey)
+	campusID := int64(1)
+	sessionID := int64(43)
+	role := "student"
+	accessTTL := 10 * time.Minute
+	accessToken, err := auth.GenerateAccessToken(userID, sessionID, campusID, role, familyID, accessTTL, privateKey)
 	if err != nil {
 		log.Fatalf("Erreur génération JWT : %v", err)
 	}
@@ -41,8 +45,10 @@ func main() {
 	}
 	fmt.Printf("-> Token valide ! Claims extraits :\n")
 	fmt.Printf("   - User ID  : %d\n", claims.UserID)
-	fmt.Printf("   - Family ID: %s\n", claims.FamilyID)
+	fmt.Printf("   - Session ID: %d\n", claims.SessionID)
 	fmt.Printf("   - Campus ID: %d\n", claims.CampusID)
+	fmt.Printf("   - Role     : %s\n", claims.Role)
+	fmt.Printf("   - Family ID: %s\n", claims.FamilyID)
 	fmt.Printf("   - ExpiresAt: %v\n", claims.ExpiresAt.Time)
  
 	fmt.Println("\n=== 5. Test des Opaque Refresh Tokens ===")

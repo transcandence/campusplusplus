@@ -19,7 +19,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "hello world")
+		_, _ = fmt.Fprintln(w, "hello world")
 	})
 
 	log.Printf("listening on %s (env=%s)", cfg.HTTPAddr, cfg.Env)
