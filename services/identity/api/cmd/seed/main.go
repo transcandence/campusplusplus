@@ -58,6 +58,14 @@ func run() error {
 		return fmt.Errorf("resolving rabat campus id: %w", err)
 	}
 
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin seed tx: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
 	// 2. Define seed users
 	users := []seedUser{
 		{
@@ -99,8 +107,15 @@ func run() error {
 			status, campus_id
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active', $9)
 		ON CONFLICT (email) DO UPDATE SET
+			first_name    = EXCLUDED.first_name,
+			last_name     = EXCLUDED.last_name,
+			phone_number  = EXCLUDED.phone_number,
+			affiliation   = EXCLUDED.affiliation,
+			role          = EXCLUDED.role,
+			gender        = EXCLUDED.gender,
 			password_hash = EXCLUDED.password_hash,
 			status        = 'active',
+			campus_id     = EXCLUDED.campus_id,
 			updated_at    = now()
 		RETURNING id;
 	`
@@ -114,7 +129,7 @@ func run() error {
 		}
 
 		var userID int64
-		err = pool.QueryRow(ctx, upsertUserQuery,
+		err = tx.QueryRow(ctx, upsertUserQuery,
 			u.FirstName,
 			u.LastName,
 			u.Email,
@@ -130,6 +145,10 @@ func run() error {
 		}
 
 		log.Printf("✔ [%s] %s (id: %d, role: %s, password: %s)", u.Role, u.Email, userID, u.Role, u.Password)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit seed tx: %w", err)
 	}
 
 	log.Println("Seeding completed successfully.")
