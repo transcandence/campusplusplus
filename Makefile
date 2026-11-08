@@ -90,3 +90,7 @@ $(addprefix migrate-down-,$(SERVICES)): migrate-down-%:
 
 $(addprefix migrate-version-,$(SERVICES)): migrate-version-%:
 	cd $(SERVICES_DIR)/$*/api && set -a && . ./.env && set +a && $(GO_MIGRATE) version
+
+##@ Seeding
+seed-identity: ## Seed identity database with dev users (sara.benali@campus.ma, worker@campus.ma, admin@campus.ma)
+	cd $(SERVICES_DIR)/identity/api && set -a && . ./.env && set +a && $(GO) run ./cmd/seed
