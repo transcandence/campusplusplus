@@ -1,0 +1,7 @@
+.git
+.github
+node_modules
+frontend
+services/housing
+services/transport
+*.md

@@ -16,8 +16,10 @@ services:
   
   identity:
     build:
-      context: ../../services/identity/api
-      dockerfile: Dockerfile
+      context: ../../
+      dockerfile: services/identity/api/Dockerfile
+    ports:
+      - "4040:8080"
     expose:
       - "8080"
     env_file:

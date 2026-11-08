@@ -1,15 +1,24 @@
-# Stage 1: Build the Go Identity Service
+# Stage 1: Build identity and shared platform/go
 FROM golang:1.25-alpine AS builder
 
-WORKDIR /app
+WORKDIR /src
 
-COPY go.mod go.sum* ./
+# 1. Copy workspace manifests and target module definition files
+COPY go.work go.work.sum* ./
+COPY platform/go/go.mod platform/go/go.sum* ./platform/go/
+COPY services/identity/api/go.mod services/identity/api/go.sum* ./services/identity/api/
 
-RUN go mod download
+# 2. Download dependencies per-module with GOWORK=off to bypass missing sibling modules
+RUN cd platform/go && GOWORK=off go mod download
+RUN cd services/identity/api && GOWORK=off go mod download
 
-COPY . .
+# 3. Copy source trees needed for the identity service
+COPY platform/go/ ./platform/go/
+COPY services/identity/api/ ./services/identity/api/
 
-RUN CGO_ENABLED=0 GOOS=linux \
+# 4. Compile with GOWORK=off
+WORKDIR /src/services/identity/api
+RUN CGO_ENABLED=0 GOOS=linux GOWORK=off \
     go build -trimpath -ldflags="-s -w" \
     -o /identity_service ./cmd/server/main.go
 
