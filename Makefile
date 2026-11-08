@@ -18,7 +18,7 @@ CODEGEN        ?= $(GO) run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-cod
 .DEFAULT_GOAL := help
 .DELETE_ON_ERROR:
 
-.PHONY: help up down test gen gen-go check-gen lint migrate \
+.PHONY: help up build down test gen gen-go check-gen lint migrate \
         $(addprefix migrate-up-,$(SERVICES)) \
         $(addprefix migrate-down-,$(SERVICES)) \
         $(addprefix migrate-version-,$(SERVICES)) \
@@ -45,6 +45,9 @@ help:
 ##@ Lifecycle
 up:
 	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile $(svc) up -d
+
+build:
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile $(svc) build $(svc)
 
 down:
 	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile $(svc) down
