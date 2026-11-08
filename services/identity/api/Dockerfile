@@ -27,7 +27,7 @@ FROM alpine:3.22 AS runtime
 
 WORKDIR /app
 
-RUN adduser -D -g '' app
+RUN adduser -D -g '' app && chown -R app:app /app
 
 COPY --from=builder --chown=app:app /identity_service ./identity_service
 
