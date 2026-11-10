@@ -98,9 +98,11 @@ func run() error {
 	})
 
 	handler.RegisterHandlersWithOptions(router, authHandler, handler.GinServerOptions{
+		BaseURL: "",
 		Middlewares: []handler.MiddlewareFunc{
 			handler.BearerAuthMiddleware(publicKey),
 		},
+		ErrorHandler: handler.CustomErrorHandler,
 	})
 
 	srv := &http.Server{
