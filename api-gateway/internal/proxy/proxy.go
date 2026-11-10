@@ -17,7 +17,7 @@ func parsTarget(rawURL string) (*url.URL, error) {
 	return target, nil
 }
 
-func newproxy(identityURL, housingURL, transportURL string) (*httputil.ReverseProxy, error) {
+func NewProxy(identityURL, housingURL, transportURL string) (*httputil.ReverseProxy, error) {
 	identityTarget, err := parsTarget(identityURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid IDENTITY_URL: %w", err)

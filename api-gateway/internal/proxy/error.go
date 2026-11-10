@@ -16,7 +16,7 @@ type ProblemDetails struct {
 
 func newErrorHandeler() func(http.ResponseWriter, *http.Request, error) {
 	return func(w http.ResponseWriter, r *http.Request, err error) {
-		requestID := r.Header.Get("X-Request-ID")
+		requestID := r.Header.Get("X-Request-Id")
 		problem := ProblemDetails {
 			Type: "about:blank",
 			Title: "Bad Gateway",
@@ -26,7 +26,7 @@ func newErrorHandeler() func(http.ResponseWriter, *http.Request, error) {
 			RequestID: requestID,
 		}
 		w.Header().Set("Content-Type", "application/problem+json")
-		w.Header().Set("X-Request-ID", requestID)
+		w.Header().Set("X-Request-Id", requestID)
 		w.WriteHeader(http.StatusBadGateway)
 		json.NewEncoder(w).Encode(problem)
 	}
