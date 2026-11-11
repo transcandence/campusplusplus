@@ -73,6 +73,11 @@ func BearerAuthMiddleware(publicKey *rsa.PublicKey) MiddlewareFunc {
 	}
 }
 
+// CustomErrorHandler formats framework and binding errors as RFC 9457 Problem Details.
+func CustomErrorHandler(c *gin.Context, err error, statusCode int) {
+	respondProblem(c, statusCode, "validation_failed", err.Error())
+}
+
 func respondProblem(c *gin.Context, status int, code, detail string) {
 	reqIDStr := c.GetString("requestId")
 	var reqIDUUID *openapi_types.UUID
