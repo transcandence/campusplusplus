@@ -3,12 +3,15 @@ node_modules/
 .env
 .env.*
 !.env.example
+!.env.docker.example
 *.log
 dist/
 bin/
 go.work.sum
 platform/go/tests/
-
+secrets/*
+infra/compose/secrets/
+*.pem
 # Next.js
 next-env.d.ts
 *.tsbuildinfo

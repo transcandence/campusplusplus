@@ -1,7 +1,10 @@
 .git
 .gitignore
 .env
+.env.docker.example
+.env.docker
 .env.example
+.env.*
 README.md
 identity_service
 *.test

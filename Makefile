@@ -6,6 +6,12 @@ svc ?= all
 GEN_SERVICES  = identity
 GEN_FILES     = $(foreach s,$(GEN_SERVICES),$(SERVICES_DIR)/$(s)/api/internal/handler/generated.go)
 
+##@ Secrets
+SECRETS_DIR ?= infra/compose/secrets
+JWT_PRIV    := $(SECRETS_DIR)/jwt_private_key.pem
+JWT_PUB     := $(SECRETS_DIR)/jwt_public_key.pem
+JWT_BITS    ?= 2048
+
 # --- Tools & Binaries ---
 DOCKER_COMPOSE ?= docker compose
 PNPM           ?= pnpm
@@ -18,7 +24,7 @@ CODEGEN        ?= $(GO) run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-cod
 .DEFAULT_GOAL := help
 .DELETE_ON_ERROR:
 
-.PHONY: help up down test gen gen-go check-gen lint migrate \
+.PHONY: help secrets secrets-clean build up down logs test gen gen-go check-gen lint migrate \
         $(addprefix migrate-up-,$(SERVICES)) \
         $(addprefix migrate-down-,$(SERVICES)) \
         $(addprefix migrate-version-,$(SERVICES)) \
@@ -37,18 +43,42 @@ help:
 	@printf '  %-30s %s\n' 'SERVICES=...'     'services for test/migrate (default: $(SERVICES))'
 	@printf '  %-30s %s\n' 'GEN_SERVICES=...' 'services with OpenAPI codegen (default: $(GEN_SERVICES))'
 	@printf '  %-30s %s\n' 'COMPOSE_FILE=...' 'compose file (default: $(COMPOSE_FILE))'
+	@printf '  %-30s %s\n' 'JWT_BITS=...'     'RSA key size for dev keys (default: $(JWT_BITS))'
 	@printf '\nExamples:\n'
+	@printf '  make build svc=identity\n'
 	@printf '  make up svc=identity\n'
+	@printf '  make logs s=identity\n'
 	@printf '  make test-service-identity\n'
 	@printf '  make migrate-up-housing\n\n'
 
+secrets: $(JWT_PRIV) $(JWT_PUB) ## Create dev JWT keys if missing (never overwrites)
+
+$(JWT_PRIV):
+	@mkdir -p $(SECRETS_DIR)
+	@echo "Generating RSA-$(JWT_BITS) private key -> $@"
+	@openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:$(JWT_BITS) -out $@
+	@chmod 644 $@
+
+# Public key is always derived from the private one, so the pair can never mismatch.
+$(JWT_PUB): $(JWT_PRIV)
+	@echo "Deriving public key -> $@"
+	@openssl pkey -in $(JWT_PRIV) -pubout -out $@
+	@chmod 644 $@
+
+secrets-clean: ## Delete dev keys (invalidates every token issued with them)
+	rm -f $(JWT_PRIV) $(JWT_PUB)
+
 ##@ Lifecycle
+build: secrets ## Ensure secrets exist, then build images
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile $(svc) build
 up:
 	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile $(svc) up -d
 
 down:
 	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile $(svc) down
 
+logs: ## Follow logs (svc=<profile>, optional s=<service>, e.g. make logs s=identity)
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile $(svc) logs -f --tail=100 $(s)
 ##@ Testing
 test: test-gateway test-platform $(addprefix test-service-,$(SERVICES))
 	@echo "Running TypeScript tests..."

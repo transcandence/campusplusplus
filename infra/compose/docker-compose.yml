@@ -7,10 +7,7 @@ services:
       - "8080:8080"
     env_file:
       - ../../api-gateway/.env
-    profiles:
-      - gateway
-      - identity
-      - all
+    profiles: [gateway, identity, all]
     networks:
       - app_net
   
@@ -23,15 +20,25 @@ services:
     expose:
       - "8080"
     env_file:
-      - ../../services/identity/api/.env
+      - ../../services/identity/api/.env.docker
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/campus_identity?sslmode=disable
+      JWT_PRIVATE_KEY_VALUE: /run/secrets/jwt_private_key
+      JWT_PUBLIC_KEY_VALUE: /run/secrets/jwt_public_key
+    secrets:
+      - jwt_private_key
+      - jwt_public_key
     depends_on:
       postgres:
         condition: service_healthy
-    profiles:
-      - identity
-      - all
-    networks:
-      - app_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:/healtz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    profiles: [identity, all]
+    networks: [app_net]
 
   postgres:
     image: postgres:17
@@ -39,11 +46,7 @@ services:
       - .env
     ports:
       - "${POSTGRES_PORT}:5432"
-    profiles:
-      - infra
-      - gateway
-      - identity
-      - all
+    profiles: [infra, gateway, identity, all]
     networks:
       - app_net
     volumes:
@@ -56,9 +59,17 @@ services:
       retries: 10
       start_period: 30s
 
+secrets:
+  jwt_private_key:
+    file: ./secrets/jwt_private_key.pem
+  jwt_public_key:
+    file: ./secrets/jwt_public_key.pem
+
 volumes:
   postgres_data:
 
 networks:
   app_net:
     driver: bridge
+
+#secrets DONE
