@@ -66,17 +66,86 @@ func (h *AuthHandler) Login(c *gin.Context) {
 }
 
 func (h *AuthHandler) Refresh(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented yet"})
+	var req RefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil{
+		respondProblem(c, http.StatusUnprocessableEntity, model.ErrCodeValidationFailed, "Refresh token is required")
+		return
+	}
+	ipAddress := c.ClientIP()
+	var userAgent *string
+	if ua := c.GetHeader("User-Agent"); ua != "" {
+		userAgent = &ua
+	}
+	tokens, err := h.authService.Refresh(c.Request.Context(), req.RefreshToken, ipAddress, userAgent)
+	if err != nil {
+		switch {
+		case errors.Is(err, model.ErrInvalidRefresh):
+			respondProblem(c, http.StatusUnauthorized, model.ErrCodeInvalidRefresh, "Invalid or expired refresh token")
+		case errors.Is(err, model.ErrAccountSuspended):
+			respondProblem(c, http.StatusForbidden, model.ErrCodeAccountSuspended, model.MsgAccountSuspended)
+		default:
+			respondProblem(c, http.StatusInternalServerError, model.ErrCodeInternalError, model.MsgInternalError)
+		}
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	c.JSON(http.StatusOK, TokenResponse{
+		AccessToken: tokens.AccessToken,
+		ExpiresIn: tokens.ExpiresIn,
+		RefreshToken: tokens.RefreshToken,
+		TokenType: Bearer,
+	})
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented yet"})
+	var req LogoutRequest
+	if err := c.ShouldBindJSON(&req); err != nil{
+		c.Status(http.StatusNoContent)
+		return
+	}
+	_ = h.authService.Logout(c.Request.Context(), req.RefreshToken)
+	c.Status(http.StatusNoContent)
 }
 
 func (h *AuthHandler) LogoutAll(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented yet"})
+	userIDVal, exists := c.Get("userID")
+	if !exists {
+		respondProblem(c, http.StatusUnauthorized, model.ErrCodeUnauthorized, "Authentication required")
+		return
+	}
+	userID, ok := userIDVal.(int64)
+	if !ok {
+		respondProblem(c, http.StatusInternalServerError, model.ErrCodeInternalError, model.MsgInternalError)
+		return
+	}
+	if err := h.authService.LogoutAll(c.Request.Context(), userID); err != nil {
+		respondProblem(c, http.StatusInternalServerError, model.ErrCodeInternalError, model.MsgInternalError)
+		return 
+	}
+	c.Status(http.StatusNoContent)
 }
 
 func (h *AuthHandler) GetMe(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented yet"})
+	userIDVal, exists := c.Get("userID")
+	if !exists {
+		respondProblem(c, http.StatusUnauthorized, model.ErrCodeUnauthorized, "Authentification required")
+		return
+	}
+	userID, ok := userIDVal.(int64)
+	if !ok {
+		respondProblem(c, http.StatusInternalServerError, model.ErrCodeInternalError, model.MsgInternalError)
+		return
+	}
+	userMe, err := h.authService.GetMe(c.Request.Context(), userID)
+	if err != nil {
+		switch{
+		case errors.Is(err, model.ErrUserNotFound):
+				respondProblem(c, http.StatusUnauthorized, model.ErrCodeUnauthorized, "User not found")
+		default:
+			respondProblem(c, http.StatusInternalServerError, model.ErrCodeInternalError, model.MsgInternalError)
+		}
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	c.JSON(http.StatusOK, userMe)
 }
