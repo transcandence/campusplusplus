@@ -9,7 +9,7 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/joho/godotenv v1.5.1
 	github.com/oapi-codegen/runtime v1.8.0
-	github.com/transcandence/campusplusplus/platform/go v0.0.0-20261106004341-842c374d1b09
+	github.com/transcandence/campusplusplus/platform/go v0.0.0-20261108164900-888af186ae38
 )
 
 require (
