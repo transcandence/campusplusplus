@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/transcandence/campusplusplus/services/identity/api/internal/model"
@@ -121,4 +121,49 @@ func (r *SessionRepository) Rotate(ctx context.Context, oldSessionID int64, newS
 		return fmt.Errorf("session repo rotate commit: %w", err)
 	}
 	return nil
+}
+
+func (r *SessionRepository) RevokeByID(ctx context.Context, sessionID int64) error{
+	const query = `
+			UPDATE sessions
+				SET revoked_at = now(),
+					updated_at = now()
+			WHERE id = $1
+				AND revoked_at IS NULL;
+			`
+	_, err := r.pool.Exec(ctx, query, sessionID)
+	if err != nil{
+		return fmt.Errorf("session reop revoke by id: %w", err)
+	}
+	return nil
+}
+
+func (r *SessionRepository) RevokeAllByUserID(ctx context.Context, userID int64) error{
+	const query = `
+        UPDATE sessions
+           SET revoked_at = now(),
+               updated_at = now()
+         WHERE user_id = $1
+           AND revoked_at IS NULL;
+    `
+    _, err := r.pool.Exec(ctx, query, userID)
+    if err != nil {
+        return fmt.Errorf("session repo revoke all by user id: %w", err)
+    }
+    return nil
+}
+
+func (r *SessionRepository) RevokeFamily(ctx context.Context, familyID uuid.UUID) error{
+	const query = `
+        UPDATE sessions
+           SET revoked_at = now(),
+               updated_at = now()
+         WHERE family_id = $1
+           AND revoked_at IS NULL;
+    `
+    _, err := r.pool.Exec(ctx, query, familyID)
+    if err != nil {
+        return fmt.Errorf("session repo revoke family: %w", err)
+    }
+    return nil
 }
