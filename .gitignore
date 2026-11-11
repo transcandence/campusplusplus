@@ -9,6 +9,9 @@ bin/
 go.work.sum
 platform/go/tests/
 
+# Keys & Secrets
+*.pem
+
 # Next.js
 next-env.d.ts
 *.tsbuildinfo
