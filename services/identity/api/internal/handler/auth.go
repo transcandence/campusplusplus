@@ -3,6 +3,7 @@ package handler
 import (
 	"crypto/rsa"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 
@@ -84,16 +85,17 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		case errors.Is(err, model.ErrAccountSuspended):
 			respondProblem(c, http.StatusForbidden, model.ErrCodeAccountSuspended, model.MsgAccountSuspended)
 		default:
+			log.Printf("ERROR refresh: %v", err)
 			respondProblem(c, http.StatusInternalServerError, model.ErrCodeInternalError, model.MsgInternalError)
 		}
 		return
 	}
 	c.Header("Cache-Control", "no-store")
 	c.JSON(http.StatusOK, TokenResponse{
-		AccessToken: tokens.AccessToken,
-		ExpiresIn: tokens.ExpiresIn,
+		AccessToken:  tokens.AccessToken,
+		ExpiresIn:    tokens.ExpiresIn,
 		RefreshToken: tokens.RefreshToken,
-		TokenType: Bearer,
+		TokenType:    Bearer,
 	})
 }
 
