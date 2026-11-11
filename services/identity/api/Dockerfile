@@ -1,5 +1,5 @@
 # Stage 1: Build identity and shared platform/go
-FROM golang:1.25-alpine AS builder
+FROM golang:1.25.11-alpine AS builder
 ENV GOWORK=off GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=linux
 WORKDIR /src
 

@@ -1,5 +1,5 @@
 # Stage 1: Build the Go API Gateway
-FROM golang:1.25.4-alpine AS builder
+FROM golang:1.25.11-alpine AS builder
 
 WORKDIR /app
 
