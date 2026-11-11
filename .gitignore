@@ -9,9 +9,16 @@ dist/
 bin/
 go.work.sum
 platform/go/tests/
+<<<<<<< HEAD
 secrets/*
 infra/compose/secrets/
 *.pem
+=======
+
+# Keys & Secrets
+*.pem
+
+>>>>>>> dev
 # Next.js
 next-env.d.ts
 *.tsbuildinfo

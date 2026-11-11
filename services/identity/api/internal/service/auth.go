@@ -201,7 +201,7 @@ func (s *AuthService) Logout(ctx context.Context, rawRefreshToken string) error{
 
 func (s *AuthService) LogoutAll(ctx context.Context, userID int64) error{
 	if err := s.sessionRepo.RevokeAllByUserID(ctx, userID); err != nil{
-		return fmt.Errorf("revoking all sessions for user: %w", err)
+		return fmt.Errorf("revoking all sessions for user: %w, err")
 	}
 	return nil
 }
