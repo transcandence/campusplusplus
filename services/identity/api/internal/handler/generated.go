@@ -4,9 +4,12 @@
 package handler
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
@@ -14,9 +17,30 @@ const (
 	BearerAuthScopes = "bearerAuth.Scopes"
 )
 
+// Defines values for RegisterRequestGender.
+const (
+	RegisterRequestGenderFemale RegisterRequestGender = "female"
+	RegisterRequestGenderMale   RegisterRequestGender = "male"
+	RegisterRequestGenderOther  RegisterRequestGender = "other"
+)
+
+// Defines values for RegisterRequestUserType.
+const (
+	RegisterRequestUserTypeGuest   RegisterRequestUserType = "guest"
+	RegisterRequestUserTypeStudent RegisterRequestUserType = "student"
+	RegisterRequestUserTypeWorker  RegisterRequestUserType = "worker"
+)
+
 // Defines values for TokenResponseTokenType.
 const (
 	Bearer TokenResponseTokenType = "Bearer"
+)
+
+// Defines values for UpdateMeRequestGender.
+const (
+	UpdateMeRequestGenderFemale UpdateMeRequestGender = "female"
+	UpdateMeRequestGenderMale   UpdateMeRequestGender = "male"
+	UpdateMeRequestGenderOther  UpdateMeRequestGender = "other"
 )
 
 // Defines values for UserMeAffiliation.
@@ -33,11 +57,11 @@ const (
 
 // Defines values for UserMeRole.
 const (
-	Admin   UserMeRole = "admin"
-	Guest   UserMeRole = "guest"
-	Staff   UserMeRole = "staff"
-	Student UserMeRole = "student"
-	Worker  UserMeRole = "worker"
+	UserMeRoleAdmin   UserMeRole = "admin"
+	UserMeRoleGuest   UserMeRole = "guest"
+	UserMeRoleStaff   UserMeRole = "staff"
+	UserMeRoleStudent UserMeRole = "student"
+	UserMeRoleWorker  UserMeRole = "worker"
 )
 
 // Defines values for UserMeStatus.
@@ -90,6 +114,32 @@ type RefreshRequest struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
+// RegisterRequest defines model for RegisterRequest.
+type RegisterRequest struct {
+	Email    *openapi_types.Email   `json:"email,omitempty"`
+	FullName string                 `json:"fullName"`
+	Gender   *RegisterRequestGender `json:"gender,omitempty"`
+	Password *string                `json:"password,omitempty"`
+	Phone    *string                `json:"phone,omitempty"`
+
+	// SubtypeAttributes Optional attributes specific to the userType (e.g. affiliation for students).
+	SubtypeAttributes *map[string]interface{} `json:"subtypeAttributes,omitempty"`
+	UserType          RegisterRequestUserType `json:"userType"`
+	union             json.RawMessage
+}
+
+// RegisterRequestGender defines model for RegisterRequest.Gender.
+type RegisterRequestGender string
+
+// RegisterRequestUserType defines model for RegisterRequest.UserType.
+type RegisterRequestUserType string
+
+// RegisterRequest0 defines model for .
+type RegisterRequest0 = interface{}
+
+// RegisterRequest1 defines model for .
+type RegisterRequest1 = interface{}
+
 // TokenResponse defines model for TokenResponse.
 type TokenResponse struct {
 	// AccessToken Short-lived JWT access token. Sent as
@@ -112,6 +162,17 @@ type TokenResponse struct {
 
 // TokenResponseTokenType defines model for TokenResponse.TokenType.
 type TokenResponseTokenType string
+
+// UpdateMeRequest defines model for UpdateMeRequest.
+type UpdateMeRequest struct {
+	Email    *openapi_types.Email   `json:"email,omitempty"`
+	FullName *string                `json:"fullName,omitempty"`
+	Gender   *UpdateMeRequestGender `json:"gender,omitempty"`
+	Phone    *string                `json:"phone,omitempty"`
+}
+
+// UpdateMeRequestGender defines model for UpdateMeRequest.Gender.
+type UpdateMeRequestGender string
 
 // UserMe defines model for UserMe.
 type UserMe struct {
@@ -169,6 +230,12 @@ type ValidationProblem struct {
 	Type string `json:"type"`
 }
 
+// BadRequest defines model for BadRequest.
+type BadRequest = Problem
+
+// Conflict defines model for Conflict.
+type Conflict = Problem
+
 // TooManyRequests defines model for TooManyRequests.
 type TooManyRequests = Problem
 
@@ -187,6 +254,187 @@ type LogoutJSONRequestBody = LogoutRequest
 // RefreshJSONRequestBody defines body for Refresh for application/json ContentType.
 type RefreshJSONRequestBody = RefreshRequest
 
+// RegisterJSONRequestBody defines body for Register for application/json ContentType.
+type RegisterJSONRequestBody = RegisterRequest
+
+// UpdateMeJSONRequestBody defines body for UpdateMe for application/json ContentType.
+type UpdateMeJSONRequestBody = UpdateMeRequest
+
+// AsRegisterRequest0 returns the union data inside the RegisterRequest as a RegisterRequest0
+func (t RegisterRequest) AsRegisterRequest0() (RegisterRequest0, error) {
+	var body RegisterRequest0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRegisterRequest0 overwrites any union data inside the RegisterRequest as the provided RegisterRequest0
+func (t *RegisterRequest) FromRegisterRequest0(v RegisterRequest0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRegisterRequest0 performs a merge with any union data inside the RegisterRequest, using the provided RegisterRequest0
+func (t *RegisterRequest) MergeRegisterRequest0(v RegisterRequest0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRegisterRequest1 returns the union data inside the RegisterRequest as a RegisterRequest1
+func (t RegisterRequest) AsRegisterRequest1() (RegisterRequest1, error) {
+	var body RegisterRequest1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRegisterRequest1 overwrites any union data inside the RegisterRequest as the provided RegisterRequest1
+func (t *RegisterRequest) FromRegisterRequest1(v RegisterRequest1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRegisterRequest1 performs a merge with any union data inside the RegisterRequest, using the provided RegisterRequest1
+func (t *RegisterRequest) MergeRegisterRequest1(v RegisterRequest1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t RegisterRequest) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	object := make(map[string]json.RawMessage)
+	if t.union != nil {
+		err = json.Unmarshal(b, &object)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if t.Email != nil {
+		object["email"], err = json.Marshal(t.Email)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'email': %w", err)
+		}
+	}
+
+	object["fullName"], err = json.Marshal(t.FullName)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'fullName': %w", err)
+	}
+
+	if t.Gender != nil {
+		object["gender"], err = json.Marshal(t.Gender)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'gender': %w", err)
+		}
+	}
+
+	object["password"], err = json.Marshal(t.Password)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'password': %w", err)
+	}
+
+	if t.Phone != nil {
+		object["phone"], err = json.Marshal(t.Phone)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'phone': %w", err)
+		}
+	}
+
+	if t.SubtypeAttributes != nil {
+		object["subtypeAttributes"], err = json.Marshal(t.SubtypeAttributes)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'subtypeAttributes': %w", err)
+		}
+	}
+
+	object["userType"], err = json.Marshal(t.UserType)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'userType': %w", err)
+	}
+
+	b, err = json.Marshal(object)
+	return b, err
+}
+
+func (t *RegisterRequest) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	if err != nil {
+		return err
+	}
+	object := make(map[string]json.RawMessage)
+	err = json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["email"]; found {
+		err = json.Unmarshal(raw, &t.Email)
+		if err != nil {
+			return fmt.Errorf("error reading 'email': %w", err)
+		}
+	}
+
+	if raw, found := object["fullName"]; found {
+		err = json.Unmarshal(raw, &t.FullName)
+		if err != nil {
+			return fmt.Errorf("error reading 'fullName': %w", err)
+		}
+	}
+
+	if raw, found := object["gender"]; found {
+		err = json.Unmarshal(raw, &t.Gender)
+		if err != nil {
+			return fmt.Errorf("error reading 'gender': %w", err)
+		}
+	}
+
+	if raw, found := object["password"]; found {
+		err = json.Unmarshal(raw, &t.Password)
+		if err != nil {
+			return fmt.Errorf("error reading 'password': %w", err)
+		}
+	}
+
+	if raw, found := object["phone"]; found {
+		err = json.Unmarshal(raw, &t.Phone)
+		if err != nil {
+			return fmt.Errorf("error reading 'phone': %w", err)
+		}
+	}
+
+	if raw, found := object["subtypeAttributes"]; found {
+		err = json.Unmarshal(raw, &t.SubtypeAttributes)
+		if err != nil {
+			return fmt.Errorf("error reading 'subtypeAttributes': %w", err)
+		}
+	}
+
+	if raw, found := object["userType"]; found {
+		err = json.Unmarshal(raw, &t.UserType)
+		if err != nil {
+			return fmt.Errorf("error reading 'userType': %w", err)
+		}
+	}
+
+	return err
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Log in with email and password
@@ -201,9 +449,15 @@ type ServerInterface interface {
 	// Exchange a refresh token for new tokens
 	// (POST /auth/refresh)
 	Refresh(c *gin.Context)
+	// Register a new user account
+	// (POST /auth/register)
+	Register(c *gin.Context)
 	// Get the current user
 	// (GET /me)
 	GetMe(c *gin.Context)
+	// Update current user profile
+	// (PUT /me)
+	UpdateMe(c *gin.Context)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -269,6 +523,19 @@ func (siw *ServerInterfaceWrapper) Refresh(c *gin.Context) {
 	siw.Handler.Refresh(c)
 }
 
+// Register operation middleware
+func (siw *ServerInterfaceWrapper) Register(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.Register(c)
+}
+
 // GetMe operation middleware
 func (siw *ServerInterfaceWrapper) GetMe(c *gin.Context) {
 
@@ -282,6 +549,21 @@ func (siw *ServerInterfaceWrapper) GetMe(c *gin.Context) {
 	}
 
 	siw.Handler.GetMe(c)
+}
+
+// UpdateMe operation middleware
+func (siw *ServerInterfaceWrapper) UpdateMe(c *gin.Context) {
+
+	c.Set(BearerAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateMe(c)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -315,5 +597,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/auth/logout", wrapper.Logout)
 	router.POST(options.BaseURL+"/auth/logout-all", wrapper.LogoutAll)
 	router.POST(options.BaseURL+"/auth/refresh", wrapper.Refresh)
+	router.POST(options.BaseURL+"/auth/register", wrapper.Register)
 	router.GET(options.BaseURL+"/me", wrapper.GetMe)
+	router.PUT(options.BaseURL+"/me", wrapper.UpdateMe)
 }
