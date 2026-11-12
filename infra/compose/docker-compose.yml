@@ -16,7 +16,7 @@ services:
       context: ../../
       dockerfile: services/identity/api/Dockerfile
     ports:
-      - "::8080"
+      - "4040:8080"
     expose:
       - "8080"
     env_file:
