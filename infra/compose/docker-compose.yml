@@ -1,8 +1,8 @@
 services:
   api-gateway:
     build:
-      context: ../../api-gateway
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: api-gateway/Dockerfile
     ports:
       - "8080:8080"
     env_file:
@@ -16,7 +16,7 @@ services:
       context: ../../
       dockerfile: services/identity/api/Dockerfile
     ports:
-      - "4040:8080"
+      - "::8080"
     expose:
       - "8080"
     env_file:
@@ -76,6 +76,3 @@ volumes:
 networks:
   app_net:
     driver: bridge
-
-#secrets DONE
-
