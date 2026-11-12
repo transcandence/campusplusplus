@@ -4,6 +4,27 @@
  */
 
 export interface paths {
+    "/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register a new user account
+         * @description Creates a new user account. Requires a full name, password, user type,
+         *     and at least one contact method (email or phone).
+         */
+        post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -123,7 +144,12 @@ export interface paths {
          *     birthday, gender, nationality, or profile fields).
          */
         get: operations["getMe"];
-        put?: never;
+        /**
+         * Update current user profile
+         * @description Updates editable profile fields (name, gender, email, phone) for the
+         *     authenticated user.
+         */
+        put: operations["updateMe"];
         post?: never;
         delete?: never;
         options?: never;
@@ -143,6 +169,30 @@ export interface components {
             email: string;
             /** Format: password */
             password: string;
+        };
+        RegisterRequest: {
+            fullName: string;
+            /** @enum {string} */
+            gender?: "male" | "female" | "other";
+            /** Format: email */
+            email?: string;
+            phone?: string;
+            /** Format: password */
+            password: string;
+            /** @enum {string} */
+            userType: "student" | "worker" | "guest";
+            /** @description Optional attributes specific to the userType (e.g. affiliation for students). */
+            subtypeAttributes?: {
+                [key: string]: unknown;
+            };
+        } | unknown | unknown;
+        UpdateMeRequest: {
+            fullName?: string;
+            /** @enum {string} */
+            gender?: "male" | "female" | "other";
+            /** Format: email */
+            email?: string;
+            phone?: string;
         };
         RefreshRequest: {
             /**
@@ -273,6 +323,26 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /** @description The request could not be understood (e.g., malformed JSON). */
+        BadRequest: {
+            headers: {
+                "X-Request-Id": components["headers"]["RequestId"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The resource already exists (duplicate email or phone number). */
+        Conflict: {
+            headers: {
+                "X-Request-Id": components["headers"]["RequestId"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
     };
     parameters: never;
     requestBodies: never;
@@ -288,6 +358,36 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description User registered successfully. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControlNoStore"];
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserMe"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
     login: {
         parameters: {
             query?: never;
@@ -439,6 +539,36 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    updateMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMeRequest"];
+            };
+        };
+        responses: {
+            /** @description Profile updated successfully. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControlNoStore"];
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserMe"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationError"];
             429: components["responses"]["TooManyRequests"];
         };
     };
