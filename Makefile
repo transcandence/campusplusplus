@@ -24,7 +24,8 @@ CODEGEN        ?= $(GO) run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-cod
 .DEFAULT_GOAL := help
 .DELETE_ON_ERROR:
 
-.PHONY: help secrets secrets-clean build up down logs test gen gen-go check-gen lint migrate \
+.PHONY: help secrets secrets-clean build up up-identity down logs test gen gen-go check-gen lint migrate \
+        seed-identity-docker \
         $(addprefix migrate-up-,$(SERVICES)) \
         $(addprefix migrate-down-,$(SERVICES)) \
         $(addprefix migrate-version-,$(SERVICES)) \
@@ -74,11 +75,18 @@ build: secrets ## Ensure secrets exist, then build images
 up:
 	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile $(svc) up -d
 
+up-identity: ## Start PostgreSQL, migrations, and identity
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile identity up --build -d
+
 down:
 	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile $(svc) down
 
 logs: ## Follow logs (svc=<profile>, optional s=<service>, e.g. make logs s=identity)
 	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile $(svc) logs -f --tail=100 $(s)
+seed-identity-docker: ## Run the development identity seed inside Docker
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile identity build identity
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile identity --profile seed run --rm identity-seed
+
 ##@ Testing
 test: test-gateway test-platform $(addprefix test-service-,$(SERVICES))
 	@echo "Running TypeScript tests..."

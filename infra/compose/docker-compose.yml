@@ -12,6 +12,7 @@ services:
       - app_net
 
   identity:
+    image: campus_identity:local
     build:
       context: ../../
       dockerfile: services/identity/api/Dockerfile
@@ -29,8 +30,8 @@ services:
       - jwt_private_key
       - jwt_public_key
     depends_on:
-      postgres:
-        condition: service_healthy
+      identity-migrate:
+        condition: service_completed_successfully
     healthcheck:
       test:
         [
@@ -42,6 +43,37 @@ services:
       retries: 5
       start_period: 10s
     profiles: [identity, all]
+    networks: [app_net]
+
+  identity-migrate:
+    image: campus_identity:local
+    build:
+      context: ../../
+      dockerfile: services/identity/api/Dockerfile
+    env_file:
+      - ../../services/identity/api/.env.docker
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/campus_identity?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["./migrate", "up"]
+    restart: "no"
+    profiles: [identity, seed, all]
+    networks: [app_net]
+
+  identity-seed:
+    image: campus_identity:local
+    env_file:
+      - ../../services/identity/api/.env.docker
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/campus_identity?sslmode=disable
+    depends_on:
+      identity-migrate:
+        condition: service_completed_successfully
+    command: ["./seed"]
+    restart: "no"
+    profiles: [seed]
     networks: [app_net]
 
   postgres:
