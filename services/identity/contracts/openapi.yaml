@@ -55,6 +55,41 @@ security:
   - bearerAuth: []
 
 paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      operationId: register
+      summary: Register a new user account
+      description: |
+        Creates a new user account. Requires a full name, password, user type,
+        and at least one contact method (email or phone).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMe'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /auth/login:
     post:
       tags: [Auth]
@@ -304,6 +339,41 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+    put:
+      tags: [Me]
+      operationId: updateMe
+      summary: Update current user profile
+      description: |
+        Updates editable profile fields (name, gender, email, phone) for the
+        authenticated user.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMeRequest'
+      responses:
+        '200':
+          description: Profile updated successfully.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMe'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
 components:
   securitySchemes:
@@ -419,6 +489,43 @@ components:
                 code: rate_limited
                 requestId: 0192f5b1-2c3d-7e4f-9a0b-1c2d3e4f5a6b   # <-- add
                 detail: Too many login attempts. Try again in 60 seconds.
+    BadRequest:
+      description: The request could not be understood (e.g., malformed JSON).
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            malformedJson:
+              value:
+                type: https://api.campus.ma/errors/bad-request
+                title: Bad Request
+                status: 400
+                code: bad_request
+                detail: Request body contains invalid JSON.
+                requestId: 0192f5b1-2c3d-7e4f-9a0b-1c2d3e4f5a6b
+
+    Conflict:
+      description: The resource already exists (duplicate email or phone number).
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            duplicateContact:
+              value:
+                type: https://api.campus.ma/errors/conflict
+                title: Conflict
+                status: 409
+                code: duplicate_contact
+                detail: An account with this email or phone number already exists.
+                requestId: 0192f5b1-2c3d-7e4f-9a0b-1c2d3e4f5a6b
 
   schemas:
     LoginRequest:
@@ -436,6 +543,60 @@ components:
           format: password
           writeOnly: true
           maxLength: 128
+    RegisterRequest:
+      type: object
+      required: [fullName, password, userType]
+      anyOf:
+        - required: [email]
+        - required: [phone]
+      additionalProperties: false
+      properties:
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 150
+        gender:
+          type: string
+          enum: [male, female, other]
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        phone:
+          type: string
+          maxLength: 30
+        password:
+          type: string
+          format: password
+          writeOnly: true
+          minLength: 8
+          maxLength: 128
+        userType:
+          type: string
+          enum: [student, worker, guest]
+        subtypeAttributes:
+          type: object
+          additionalProperties: true
+          description: Optional attributes specific to the userType (e.g. affiliation for students).
+
+    UpdateMeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 150
+        gender:
+          type: string
+          enum: [male, female, other]
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        phone:
+          type: string
+          maxLength: 30
 
     RefreshRequest:
       type: object
