@@ -65,7 +65,7 @@ func newDirector(routes []route) func(*http.Request) {
 			req.URL.Host = rt.target.Host
 			req.Host = rt.target.Host
 
-			trimmed := strings.TrimPrefix(req.URL.Path, rt.prefix)
+			trimmed := strings.TrimPrefix(req.URL.Path, "/api/v1")
 			if !strings.HasPrefix(trimmed, "/") {
 				trimmed = "/" + trimmed
 			}
