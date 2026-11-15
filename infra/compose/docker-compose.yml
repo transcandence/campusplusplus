@@ -6,33 +6,22 @@ services:
     ports:
       - "8080:8080"
     env_file:
-<<<<<<< HEAD
-      - ../../api-gateway/.env
-=======
       - ../../api-gateway/.env.docker
     environment:
       JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public_key
     secrets:
       - jwt_public_key
->>>>>>> origin/dev
     profiles: [gateway, identity, all]
     networks:
       - app_net
 
   identity:
-<<<<<<< HEAD
-=======
     image: campus_identity:local
->>>>>>> origin/dev
     build:
       context: ../../
       dockerfile: services/identity/api/Dockerfile
     ports:
-<<<<<<< HEAD
-      - "::8080"
-=======
       - "4040:8080"
->>>>>>> origin/dev
     expose:
       - "8080"
     env_file:
@@ -45,13 +34,8 @@ services:
       - jwt_private_key
       - jwt_public_key
     depends_on:
-<<<<<<< HEAD
-      postgres:
-        condition: service_healthy
-=======
       identity-migrate:
         condition: service_completed_successfully
->>>>>>> origin/dev
     healthcheck:
       test:
         [
@@ -65,8 +49,6 @@ services:
     profiles: [identity, all]
     networks: [app_net]
 
-<<<<<<< HEAD
-=======
   identity-migrate:
     image: campus_identity:local
     build:
@@ -98,7 +80,6 @@ services:
     profiles: [seed]
     networks: [app_net]
 
->>>>>>> origin/dev
   postgres:
     image: postgres:17
     env_file:
