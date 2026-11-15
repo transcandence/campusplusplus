@@ -19,4 +19,3 @@ const http = createHttpClient({
 
 // 2. Create the Identity API using that HTTP client
 export const identityApi = createIdentityApi(http);
-identityApi.login()

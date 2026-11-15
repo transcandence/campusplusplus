@@ -65,7 +65,7 @@ export function createHttpClient(
           "/auth/refresh",
           {
             method: "POST",
-             credentials: "include",
+            credentials: "include",
           },
           null,
         );

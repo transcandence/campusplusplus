@@ -106,6 +106,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	})
 }
 
+
 func (h *AuthHandler) clearRefreshCookie(c *gin.Context) {
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("refresh_token","",-1,"/auth","",h.cookieSecure,true)
