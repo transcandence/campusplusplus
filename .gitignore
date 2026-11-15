@@ -12,7 +12,6 @@ platform/go/tests/
 secrets/*
 infra/compose/secrets/
 *.pem
-=======
 
 # Keys & Secrets
 *.pem
