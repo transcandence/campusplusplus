@@ -27,6 +27,7 @@ type Config struct {
 	JWTAudience          string
 	RateLimitLoginPerMin int
 	LogLevel             string
+	cookieSecure		 bool
 }
 
 func Load() (*Config, error) {
@@ -44,6 +45,7 @@ func Load() (*Config, error) {
 		JWTIssuer:         getenv("JWT_ISSUER", "campus-identity"),
 		JWTAudience:       getenv("JWT_AUDIENCE", "campus-api"),
 		LogLevel:          getenv("LOG_LEVEL", "info"),
+		cookieSecure:		getenv("COOKIE_SECURE", false),
 	}
 
 	var err error

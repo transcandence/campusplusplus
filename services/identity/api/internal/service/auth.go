@@ -124,6 +124,7 @@ func (s *AuthService) Refresh(
 	rawRefreshToken string,
 	ipAddress string,
 	userAgent *string,
+
 ) (*TokenPair, error) {
 	TokenHash := auth.HashRefreshToken(rawRefreshToken)
 	session, err := s.sessionRepo.FindByTokenHash(ctx, TokenHash)
@@ -201,7 +202,7 @@ func (s *AuthService) Logout(ctx context.Context, rawRefreshToken string) error{
 
 func (s *AuthService) LogoutAll(ctx context.Context, userID int64) error{
 	if err := s.sessionRepo.RevokeAllByUserID(ctx, userID); err != nil{
-		return fmt.Errorf("revoking all sessions for user: %w, err")
+		return fmt.Errorf("revoking all sessions for user: %w", err)
 	}
 	return nil
 }
@@ -215,4 +216,8 @@ func (s *AuthService) GetMe(ctx context.Context, userID int64) (*model.UserMe, e
 		return nil, fmt.Errorf("finding user profile by id %w", err)
 	}
 	return user, nil
+}
+
+func (s *AuthService) RefreshTTL() time.Duration {
+    return s.refreshTTL
 }

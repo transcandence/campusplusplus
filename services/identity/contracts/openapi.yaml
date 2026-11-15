@@ -7,36 +7,41 @@ info:
     Authentication and current-user endpoints for the campus platform
     (housing, transportation, restaurant, gate, events, reports).
 
-    This is the **login slice**: log in, stay logged in (refresh), log out
+    This is the **login slice**: log in, stay logged in (refresh), logout
     (current device or all devices), and fetch the current user.
 
     ## Conventions
-    - All bodies are JSON (`application/json`) unless stated otherwise.
+    - Request bodies are JSON (`application/json`) unless stated otherwise.
     - All errors use **RFC 9457 Problem Details** (`application/problem+json`).
-    - Every response carries an `X-Request-Id` header; quote it in bug reports.
+    - Every response carries an `X-Request-Id` header; quote it in bugreports.
     - Access tokens are JWTs sent as `Authorization: Bearer <token>`.
+    - Browser clients must send cookie-based authentication requests with
+      credentials enabled (`credentials: "include"`).
 
     ## Tokens
-    - **Access token**: short-lived JWT (600 seconds / 10 minutes), sent as
-      `Authorization: Bearer <token>` on every authenticated request.
-    - **Refresh token**: opaque, long-lived (30 days), returned by
-      `/auth/login` and `/auth/refresh` in the JSON body. It is rotated on
-      every successful refresh; the old token is invalidated immediately.
-      Store it in the most restrictive storage available. Do not log it.
+    - **Access token**: short-lived JWT (600 seconds / 10 minutes), returned
+      in the JSON response body and sent as `Authorization: Bearer <token>`
+      on authenticated requests.
+    - **Refresh token**: opaque, long-lived (30 days), delivered only through
+      the `refresh_token` HttpOnly cookie. It is never returned in JSON and
+      must not be accessible to frontend JavaScript.
+    - The refresh token is rotated on every successful refresh; the old token
+      is invalidated immediately.
 
     ## Refresh failures
-    Any failure to refresh (unknown, expired, revoked, reused, or an account
-    that is `pending_verification` / `suspended`) returns the same
-    `401 invalid_refresh`. Clients should treat any `401` from
+    Any failure to refresh (unknown, expired, revoked, reused, missingcookie,
+    or an account that is `pending_verification` / `suspended`) returns the
+    same `401 invalid_refresh`. Clients should treat any `401` from
     `/auth/refresh` as "the refresh token is no longer usable; log in again."
     The account-status distinction (`403`) is only exposed on `/auth/login`.
 
     ## Logout
     Logout is **idempotent**: `POST /auth/logout` returns `204` whether the
-    refresh token was valid, already revoked, or garbage. `POST
+    refresh cookie is missing, or its token was valid, already revoked, or
+    unknown. The response expires the refresh-token cookie. `POST
     /auth/logout-all` returns `204` when the bearer token is valid (even if
     no sessions were active), and `401` only when the bearer token is
-    missing or invalid.
+    missing or invalid. It also expires the refresh-token cookie.
   license:
     name: Proprietary
     url: https://campus.ma/terms
@@ -62,7 +67,8 @@ paths:
       summary: Log in with email and password
       description: |
         Verifies credentials and opens a session. Returns a short-lived access
-        token and a long-lived refresh token.
+        token in the JSON body and sets the long-lived refresh token in an
+        HttpOnly cookie.
 
         Email matching is **case-insensitive** (`Sara@campus.ma` and
         `sara@campus.ma` reach the same account).
@@ -85,12 +91,14 @@ paths:
 
       responses:
         '200':
-          description: Authenticated.
+          description: Authenticated. The refresh token is set in an HttpOnly cookie.
           headers:
             Cache-Control:
               $ref: '#/components/headers/CacheControlNoStore'
             X-Request-Id:
               $ref: '#/components/headers/RequestId'
+            Set-Cookie:
+              $ref: '#/components/headers/RefreshTokenCookie'
           content:
             application/json:
               schema:
@@ -101,7 +109,6 @@ paths:
                     accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
                     tokenType: Bearer
                     expiresIn: 600
-                    refreshToken: 7f3c1e9a4b2d8f6e0c5a1b3d9e7f2a4c6b8d0e1f3a5c7b9d2e4f6a8c0b1d3e5f
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -139,11 +146,11 @@ paths:
     post:
       tags: [Auth]
       operationId: refresh
-      summary: Exchange a refresh token for new tokens
+      summary: Exchange the refresh cookie for a new access token
       description: |
-        Rotates the refresh token and issues a new access token. The old
-        refresh token is invalidated on success; the new refresh token is
-        returned in the body and must replace the old one client-side.
+        Reads the refresh token from the refresh_token cookie, rotatesit, and
+        issues a new access token. The old refresh token is invalidated on
+        success; the replacement is delivered through Set-Cookie.
 
         Failures are intentionally generic: an unknown, expired, revoked, or
         reused refresh token, and a refresh for a `pending_verification` or
@@ -151,16 +158,13 @@ paths:
         Clients should treat any `401` from this endpoint as "the refresh
         token is no longer usable; log in again."
       security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RefreshRequest'
-            examples:
-              refresh:
-                value:
-                  refreshToken: 7f3c1e9a4b2d8f6e0c5a1b3d9e7f2a4c6b8d0e1f3a5c7b9d2e4f6a8c0b1d3e5f
+      parameters:
+        - name: refresh_token
+          in: cookie
+          required: false
+          description: HttpOnly refresh token automatically sent by the browser.
+          schema:
+            type: string
       responses:
         '200':
           description: Tokens rotated.
@@ -169,6 +173,8 @@ paths:
               $ref: '#/components/headers/CacheControlNoStore'
             X-Request-Id:
               $ref: '#/components/headers/RequestId'
+            Set-Cookie:
+              $ref: '#/components/headers/RefreshTokenCookie'
           content:
             application/json:
               schema:
@@ -179,10 +185,9 @@ paths:
                     accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
                     tokenType: Bearer
                     expiresIn: 600
-                    refreshToken: 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b
         '401':
           description: |
-            The refresh token is unknown, expired, revoked, reused, or belongs
+            The refresh token is unknown, expired, revoked, reused, orbelongs
             to an account that cannot log in. Clients should send the user back
             to `/auth/login`.
           headers:
@@ -199,10 +204,8 @@ paths:
                     title: Invalid refresh token
                     status: 401
                     code: invalid_refresh
-                    detail: The refresh token is no longer usable. Log in again.
+                    detail: The refresh token is no longer usable. Login again.
                     requestId: 0192f5b1-2c3d-7e4f-9a0b-1c2d3e4f5a6b
-        '422':
-          $ref: '#/components/responses/ValidationError'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -212,30 +215,28 @@ paths:
       operationId: logout
       summary: End the current session
       description: |
-        Revokes the session associated with the supplied refresh token.
+        Reads the refresh token from the refresh_token cookie and revokes
+        the associated session when possible.
 
-        Idempotent: returns `204` whether the token was valid, already
-        revoked, or unknown. The client should discard the refresh token on
-        any `204`.
+        Idempotent: returns `204` whether the cookie is missing, or the token
+        was valid, already revoked, or unknown. The response expires the
+        refresh-token cookie.
       security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LogoutRequest'
-            examples:
-              logout:
-                value:
-                  refreshToken: 7f3c1e9a4b2d8f6e0c5a1b3d9e7f2a4c6b8d0e1f3a5c7b9d2e4f6a8c0b1d3e5f
+      parameters:
+        - name: refresh_token
+          in: cookie
+          required: false
+          description: HttpOnly refresh token automatically sent by the browser.
+          schema:
+            type: string
       responses:
         '204':
           description: Session ended (or already ended).
           headers:
             X-Request-Id:
               $ref: '#/components/headers/RequestId'
-        '422':
-          $ref: '#/components/responses/ValidationError'
+            Set-Cookie:
+              $ref: '#/components/headers/ExpiredRefreshTokenCookie'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -245,10 +246,10 @@ paths:
       operationId: logoutAll
       summary: End every session for the current user
       description: |
-        Revokes all active sessions for the authenticated user. Useful after
+        Revokes all active sessions for the authenticated user. Usefulafter
         a device is lost or when the user wants to sign out everywhere.
 
-        Requires a valid bearer token. Returns `204` when the token is valid,
+        Requires a valid bearer token. Returns `204` when the token isvalid,
         even if no sessions were active (idempotent). Returns `401` only when
         the bearer token is missing or invalid.
       security:
@@ -259,6 +260,8 @@ paths:
           headers:
             X-Request-Id:
               $ref: '#/components/headers/RequestId'
+            Set-Cookie:
+              $ref: '#/components/headers/ExpiredRefreshTokenCookie'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '429':
@@ -312,8 +315,11 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: |
-        Access token from `/auth/login` or `/auth/refresh`, sent as
-        `Authorization: Bearer <token>`.
+        Access token from `/auth/login` or `/auth/refresh`, returned in the
+        JSON response body and sent as `Authorization: Bearer <token>`.
+
+        The refresh token is delivered separately through the HttpOnly
+        `refresh_token` cookie and is not part of bearer authentication.
 
         The token is a signed JWT (HS256) with the following claims:
 
@@ -349,6 +355,21 @@ components:
       schema:
         type: integer
         minimum: 1
+    RefreshTokenCookie:
+      description: |
+        Sets the refresh_token cookie. HttpOnly prevents JavaScript access.
+        Secure is enabled in production. SameSite uses the configured policy.
+        The Path must match the browser-facing authentication routes.
+      schema:
+        type: string
+        example: 'refresh_token=<opaque-token>; Path=/auth; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000'
+    ExpiredRefreshTokenCookie:
+      description: |
+        Expires the refresh_token cookie. The cookie name, Path, and Domain
+        (if configured) must match the originally issued cookie.
+      schema:
+        type: string
+        example: 'refresh_token=; Path=/auth; HttpOnly; Secure; SameSite=Lax; Max-Age=0'
 
   responses:
     Unauthorized:
@@ -437,33 +458,10 @@ components:
           writeOnly: true
           maxLength: 128
 
-    RefreshRequest:
-      type: object
-      required: [refreshToken]
-      additionalProperties: false
-      properties:
-        refreshToken:
-          type: string
-          minLength: 1
-          description: |
-            The refresh token returned by `/auth/login` or by the previous
-            successful `/auth/refresh`. Rotated on every successful refresh.
-
-    LogoutRequest:
-      type: object
-      required: [refreshToken]
-      additionalProperties: false
-      properties:
-        refreshToken:
-          type: string
-          minLength: 1
-          description: |
-            The refresh token for the session to end. Idempotent: an unknown
-            or already-revoked token still returns `204`.
-
     TokenResponse:
       type: object
-      required: [accessToken, tokenType, expiresIn, refreshToken]
+      required: [accessToken, tokenType, expiresIn]
+      additionalProperties: false
       properties:
         accessToken:
           type: string
@@ -478,15 +476,6 @@ components:
           type: integer
           description: Access-token lifetime in seconds.
           example: 600
-        refreshToken:
-          type: string
-          description: |
-            Long-lived opaque refresh token (30 days). Rotated on every
-            successful `/auth/refresh`; the old token is invalidated
-            immediately. The current deployment returns it in the response
-            body. Store it in the most restrictive storage available (in a
-            browser: `sessionStorage` at most, never `localStorage`; on
-            mobile: the OS keychain). Do not log it.
 
     UserMe:
       type: object

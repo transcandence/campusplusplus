@@ -14,12 +14,14 @@ import (
 type AuthHandler struct {
 	authService *service.AuthService
 	publicKey   *rsa.PublicKey
+	cookieSecure bool
 }
 
-func NewAuthHandler(authService *service.AuthService, publicKey *rsa.PublicKey) *AuthHandler {
+func NewAuthHandler(authService *service.AuthService, publicKey *rsa.PublicKey, cookieSecure bool) *AuthHandler {
 	return &AuthHandler{
 		authService: authService,
 		publicKey:   publicKey,
+		cookieSecure: cookieSecure,
 	}
 }
 
@@ -57,29 +59,34 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	c.Header("Cache-Control", "no-store")
+	c.SetSameSite(http.SameSiteLaxMode)
+	maxAge := int(h.authService.RefreshTTL().Seconds())
+	c.SetCookie("refresh_token", tokens.RefreshToken, maxAge,"/auth", "", h.cookieSecure,true)
 	c.JSON(http.StatusOK, TokenResponse{
-		AccessToken:  tokens.AccessToken,
-		ExpiresIn:    tokens.ExpiresIn,
-		RefreshToken: tokens.RefreshToken,
-		TokenType:    Bearer,
+		AccessToken: tokens.AccessToken,
+		ExpiresIn: tokens.ExpiresIn,
+		TokenType: Bearer,
 	})
 }
 
 func (h *AuthHandler) Refresh(c *gin.Context) {
-	var req RefreshRequest
-	if err := c.ShouldBindJSON(&req); err != nil{
-		respondProblem(c, http.StatusUnprocessableEntity, model.ErrCodeValidationFailed, "Refresh token is required")
-		return
+	refreshToken, err := c.Cookie("refresh_token")
+	if err != nil || refreshToken == "" 
+	{
+    	respondProblem(c,http.StatusUnauthorized,model.ErrCodeInvalidRefresh,"Refresh token is required",)
+    	return
 	}
 	ipAddress := c.ClientIP()
 	var userAgent *string
 	if ua := c.GetHeader("User-Agent"); ua != "" {
 		userAgent = &ua
 	}
-	tokens, err := h.authService.Refresh(c.Request.Context(), req.RefreshToken, ipAddress, userAgent)
+	// tokens, err := h.authService.Refresh(c.Request.Context(), req.RefreshToken, ipAddress, userAgent)
+	tokens, err := h.authService.Refresh(c.Request.Context(),refreshToken, ipAddress, userAgent,)
 	if err != nil {
 		switch {
 		case errors.Is(err, model.ErrInvalidRefresh):
+			h.clearRefreshCookie(c)
 			respondProblem(c, http.StatusUnauthorized, model.ErrCodeInvalidRefresh, "Invalid or expired refresh token")
 		case errors.Is(err, model.ErrAccountSuspended):
 			respondProblem(c, http.StatusForbidden, model.ErrCodeAccountSuspended, model.MsgAccountSuspended)
@@ -89,22 +96,37 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		return
 	}
 	c.Header("Cache-Control", "no-store")
+	maxAge := int(h.authService.RefreshTTL().Seconds())
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("refresh_token", tokens.RefreshToken, maxAge,"/auth", "", h.cookieSecure,true)
 	c.JSON(http.StatusOK, TokenResponse{
 		AccessToken: tokens.AccessToken,
 		ExpiresIn: tokens.ExpiresIn,
-		RefreshToken: tokens.RefreshToken,
 		TokenType: Bearer,
 	})
 }
 
+func (h *AuthHandler) clearRefreshCookie(c *gin.Context) {
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("refresh_token","",-1,"/auth","",h.cookieSecure,true)
+}
+
+
 func (h *AuthHandler) Logout(c *gin.Context) {
-	var req LogoutRequest
-	if err := c.ShouldBindJSON(&req); err != nil{
-		c.Status(http.StatusNoContent)
-		return
-	}
-	_ = h.authService.Logout(c.Request.Context(), req.RefreshToken)
-	c.Status(http.StatusNoContent)
+    refreshToken, err := c.Cookie("refresh_token")
+    if err == nil && refreshToken != "" {
+        if err := h.authService.Logout(c.Request.Context(), refreshToken); err != nil {
+            respondProblem(
+                c,
+                http.StatusInternalServerError,
+                model.ErrCodeInternalError,
+                model.MsgInternalError,
+            )
+            return
+        }
+    }
+    h.clearRefreshCookie(c)
+    c.Status(http.StatusNoContent)
 }
 
 func (h *AuthHandler) LogoutAll(c *gin.Context) {
@@ -122,6 +144,7 @@ func (h *AuthHandler) LogoutAll(c *gin.Context) {
 		respondProblem(c, http.StatusInternalServerError, model.ErrCodeInternalError, model.MsgInternalError)
 		return 
 	}
+	h.clearRefreshCookie(c)
 	c.Status(http.StatusNoContent)
 }
 

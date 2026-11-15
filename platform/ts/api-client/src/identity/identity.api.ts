@@ -49,13 +49,16 @@ export function createIdentityApi(http: HttpClient) {
       }
     },
 
-    async logoutAll(): Promise<void> 
-    {
-      await http.request<void>("/auth/logout-all", {
-        method: "POST",
+    async logoutAll(): Promise<void> {
+    try {
+        await http.request<void>("/auth/logout-all", {
+          method: "POST",
+          credentials: "include",
       });
-
+    } 
+    finally {
       http.clearTokens();
-    },
-  };
+    }
+    }
+  }
 }

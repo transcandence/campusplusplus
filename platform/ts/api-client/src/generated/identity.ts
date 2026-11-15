@@ -16,7 +16,8 @@ export interface paths {
         /**
          * Log in with email and password
          * @description Verifies credentials and opens a session. Returns a short-lived access
-         *     token and a long-lived refresh token.
+         *     token in the JSON body and sets the long-lived refresh token in an
+         *     HttpOnly cookie.
          *
          *     Email matching is **case-insensitive** (`Sara@campus.ma` and
          *     `sara@campus.ma` reach the same account).
@@ -41,10 +42,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Exchange a refresh token for new tokens
-         * @description Rotates the refresh token and issues a new access token. The old
-         *     refresh token is invalidated on success; the new refresh token is
-         *     returned in the body and must replace the old one client-side.
+         * Exchange the refresh cookie for a new access token
+         * @description Reads the refresh token from the refresh_token cookie, rotatesit, and
+         *     issues a new access token. The old refresh token is invalidated on
+         *     success; the replacement is delivered through Set-Cookie.
          *
          *     Failures are intentionally generic: an unknown, expired, revoked, or
          *     reused refresh token, and a refresh for a `pending_verification` or
@@ -70,11 +71,12 @@ export interface paths {
         put?: never;
         /**
          * End the current session
-         * @description Revokes the session associated with the supplied refresh token.
+         * @description Reads the refresh token from the refresh_token cookie and revokes
+         *     the associated session when possible.
          *
-         *     Idempotent: returns `204` whether the token was valid, already
-         *     revoked, or unknown. The client should discard the refresh token on
-         *     any `204`.
+         *     Idempotent: returns `204` whether the cookie is missing, or the token
+         *     was valid, already revoked, or unknown. The response expires the
+         *     refresh-token cookie.
          */
         post: operations["logout"];
         delete?: never;
@@ -94,10 +96,10 @@ export interface paths {
         put?: never;
         /**
          * End every session for the current user
-         * @description Revokes all active sessions for the authenticated user. Useful after
+         * @description Revokes all active sessions for the authenticated user. Usefulafter
          *     a device is lost or when the user wants to sign out everywhere.
          *
-         *     Requires a valid bearer token. Returns `204` when the token is valid,
+         *     Requires a valid bearer token. Returns `204` when the token isvalid,
          *     even if no sessions were active (idempotent). Returns `401` only when
          *     the bearer token is missing or invalid.
          */
@@ -144,20 +146,6 @@ export interface components {
             /** Format: password */
             password: string;
         };
-        RefreshRequest: {
-            /**
-             * @description The refresh token returned by `/auth/login` or by the previous
-             *     successful `/auth/refresh`. Rotated on every successful refresh.
-             */
-            refreshToken: string;
-        };
-        LogoutRequest: {
-            /**
-             * @description The refresh token for the session to end. Idempotent: an unknown
-             *     or already-revoked token still returns `204`.
-             */
-            refreshToken: string;
-        };
         TokenResponse: {
             /**
              * @description Short-lived JWT access token. Sent as
@@ -172,15 +160,6 @@ export interface components {
              * @example 600
              */
             expiresIn: number;
-            /**
-             * @description Long-lived opaque refresh token (30 days). Rotated on every
-             *     successful `/auth/refresh`; the old token is invalidated
-             *     immediately. The current deployment returns it in the response
-             *     body. Store it in the most restrictive storage available (in a
-             *     browser: `sessionStorage` at most, never `localStorage`; on
-             *     mobile: the OS keychain). Do not log it.
-             */
-            refreshToken: string;
         };
         UserMe: {
             /**
@@ -283,6 +262,17 @@ export interface components {
         CacheControlNoStore: "no-store";
         /** @description Seconds to wait before retrying. */
         RetryAfter: number;
+        /**
+         * @description Sets the refresh_token cookie. HttpOnly prevents JavaScript access.
+         *     Secure is enabled in production. SameSite uses the configured policy.
+         *     The Path must match the browser-facing authentication routes.
+         */
+        RefreshTokenCookie: string;
+        /**
+         * @description Expires the refresh_token cookie. The cookie name, Path, and Domain
+         *     (if configured) must match the originally issued cookie.
+         */
+        ExpiredRefreshTokenCookie: string;
     };
     pathItems: never;
 }
@@ -301,11 +291,12 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Authenticated. */
+            /** @description Authenticated. The refresh token is set in an HttpOnly cookie. */
             200: {
                 headers: {
                     "Cache-Control": components["headers"]["CacheControlNoStore"];
                     "X-Request-Id": components["headers"]["RequestId"];
+                    "Set-Cookie": components["headers"]["RefreshTokenCookie"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -335,19 +326,19 @@ export interface operations {
             query?: never;
             header?: never;
             path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RefreshRequest"];
+            cookie?: {
+                /** @description HttpOnly refresh token automatically sent by the browser. */
+                refresh_token?: string;
             };
         };
+        requestBody?: never;
         responses: {
             /** @description Tokens rotated. */
             200: {
                 headers: {
                     "Cache-Control": components["headers"]["CacheControlNoStore"];
                     "X-Request-Id": components["headers"]["RequestId"];
+                    "Set-Cookie": components["headers"]["RefreshTokenCookie"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -355,7 +346,7 @@ export interface operations {
                 };
             };
             /**
-             * @description The refresh token is unknown, expired, revoked, reused, or belongs
+             * @description The refresh token is unknown, expired, revoked, reused, orbelongs
              *     to an account that cannot log in. Clients should send the user back
              *     to `/auth/login`.
              */
@@ -368,7 +359,6 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            422: components["responses"]["ValidationError"];
             429: components["responses"]["TooManyRequests"];
         };
     };
@@ -377,23 +367,22 @@ export interface operations {
             query?: never;
             header?: never;
             path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LogoutRequest"];
+            cookie?: {
+                /** @description HttpOnly refresh token automatically sent by the browser. */
+                refresh_token?: string;
             };
         };
+        requestBody?: never;
         responses: {
             /** @description Session ended (or already ended). */
             204: {
                 headers: {
                     "X-Request-Id": components["headers"]["RequestId"];
+                    "Set-Cookie": components["headers"]["ExpiredRefreshTokenCookie"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            422: components["responses"]["ValidationError"];
             429: components["responses"]["TooManyRequests"];
         };
     };
@@ -410,6 +399,7 @@ export interface operations {
             204: {
                 headers: {
                     "X-Request-Id": components["headers"]["RequestId"];
+                    "Set-Cookie": components["headers"]["ExpiredRefreshTokenCookie"];
                     [name: string]: unknown;
                 };
                 content?: never;
