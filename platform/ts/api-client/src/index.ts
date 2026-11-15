@@ -7,8 +7,6 @@ export type { HttpClient, HttpClientConfig } from "./client/types";
 
 export type {
   LoginRequest,
-  LogoutRequest,
-  RefreshRequest,
   TokenResponse,
   UserMe,
   Problem,
