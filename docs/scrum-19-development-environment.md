@@ -157,7 +157,7 @@ Downstream services that verify Identity access tokens should receive only the p
 flowchart LR
     Public[JWT public key]
     Identity[identity signs JWT\nwith private key]
-    Gateway[api-gateway verifies\nwith public key]
+    Gateway[api-gateway receives\npublic key only]
     Housing[housing verifies\nwith public key]
     Transport[transport verifies\nwith public key]
 
@@ -177,7 +177,7 @@ For each future verifier service:
 4. Do not mount or copy `jwt_private_key.pem` into that service.
 5. Keep the service on `app_net` if it needs to call Identity or another internal service.
 
-The current Compose file mounts the JWT keys only into `identity`. Gateway and future service public-key mounting are follow-up work; the current Gateway configuration has an empty `JWT_PUBLIC_KEY_PATH` and does not yet implement complete JWT verification middleware.
+The current Compose file mounts both signing and verification keys into `identity`, while `api-gateway` receives only the public key. The Gateway is configured with `JWT_PUBLIC_KEY_PATH=/run/secrets/jwt_public_key`, but complete JWT verification middleware is still follow-up work.
 
 ## Service discovery
 
@@ -326,7 +326,7 @@ curl -i -X POST http://localhost:4040/auth/login \
   -H 'Content-Type: application/json' \
   -d '{
     "email": "sara.benali@campus.ma",
-    "password": "Sara@benali1234"
+    "password": "<DEVELOPMENT_PASSWORD>"
   }'
 ```
 
@@ -339,7 +339,7 @@ curl -i -X POST http://localhost:8080/api/v1/auth/login \
   -H 'Content-Type: application/json' \
   -d '{
     "email": "sara.benali@campus.ma",
-    "password": "Sara@benali1234"
+    "password": "<DEVELOPMENT_PASSWORD>"
   }'
 ```
 

@@ -6,7 +6,11 @@ services:
     ports:
       - "8080:8080"
     env_file:
-      - ../../api-gateway/.env
+      - ../../api-gateway/.env.docker
+    environment:
+      JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public_key
+    secrets:
+      - jwt_public_key
     profiles: [gateway, identity, all]
     networks:
       - app_net
