@@ -10,6 +10,7 @@ bin/
 go.work.sum
 platform/go/tests/
 <<<<<<< HEAD
+<<<<<<< HEAD
 secrets/*
 infra/compose/secrets/
 *.pem
@@ -18,7 +19,10 @@ infra/compose/secrets/
 # Keys & Secrets
 *.pem
 
->>>>>>> dev
+
+secrets/*
+infra/compose/secrets/
+*.pem
 # Next.js
 next-env.d.ts
 *.tsbuildinfo
