@@ -232,12 +232,12 @@ func TestJwtAuth_ValidTokenPropagatesIdentityHeaders(t *testing.T) {
 	privKey := generateTestRSAKey(t)
 
 	validToken := signRS256JWT(t, privKey, map[string]any{
-		"user_id":    int64(42),
-		"role":       "student",
-		"campus_id":  int64(7),
-		"session_id": int64(9001),
-		"exp":        time.Now().Add(15 * time.Minute).Unix(),
-	})
+			"user_id":    int64(42),
+			"role":       "student",
+			"campus_id":  int64(7),
+			"sid":        int64(9001),
+			"exp":        time.Now().Add(15 * time.Minute).Unix(),
+		})
 
 	var receivedHeaders http.Header
 	downstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
