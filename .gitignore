@@ -8,6 +8,9 @@ dist/
 bin/
 go.work.sum
 platform/go/tests/
+infra/compose/secrets/
+services/identity/api/private.pem
+services/identity/api/public.pem
 
 # Next.js
 next-env.d.ts
