@@ -2,10 +2,16 @@
   "name": "campus",
   "private": true,
   "packageManager": "pnpm@11.28.8",
-  "engines": { "node": ">=24 <25" },
+  "engines": {
+    "node": ">=24 <25"
+  },
   "scripts": {
     "dev:frontend": "pnpm --filter ./frontend dev",
     "build": "pnpm -r --if-present build",
-    "lint": "pnpm -r --if-present lint"
+    "lint": "pnpm -r --if-present lint",
+    "gen": "pnpm exec openapi-typescript services/identity/contracts/openapi.yaml -o platform/ts/api-client/src/generated/identity.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0"
   }
 }

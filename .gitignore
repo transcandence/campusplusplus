@@ -3,15 +3,25 @@ node_modules/
 .env
 .env.*
 !.env.example
+!.env.docker.example
 *.log
 dist/
 bin/
 go.work.sum
 platform/go/tests/
 infra/compose/secrets/
-services/identity/api/private.pem
-services/identity/api/public.pem
 
+secrets/*
+infra/compose/secrets/
+*.pem
+
+# Keys & Secrets
+*.pem
+
+
+secrets/*
+infra/compose/secrets/
+*.pem
 # Next.js
 next-env.d.ts
 *.tsbuildinfo

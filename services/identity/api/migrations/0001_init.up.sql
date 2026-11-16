@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 CREATE TABLE IF NOT EXISTS sessions (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL UNIQUE,
+    user_id INTEGER NOT NULL,
     token TEXT NOT NULL UNIQUE,
     ip_address INET NOT NULL,
     user_agent TEXT,
