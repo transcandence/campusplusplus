@@ -8,6 +8,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -64,11 +65,26 @@ func Load() (*Config, error) {
 }
 
 func loadDotenv() error {
-	err := godotenv.Load(".env")
-	if err == nil || os.IsNotExist(err) {
-		return nil
+	dir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getting working directory: %w", err)
 	}
-	return fmt.Errorf("loading .env: %w", err)
+
+	for {
+		candidate := filepath.Join(dir, ".env")
+		err := godotenv.Load(candidate)
+		if err == nil {
+			return nil
+		}
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("loading %s: %w", candidate, err)
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return nil
+		}
+		dir = parent
+	}
 }
 
 func getenv(key, fallback string) string {
