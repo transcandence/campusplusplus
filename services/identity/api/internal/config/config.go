@@ -27,7 +27,7 @@ type Config struct {
 	JWTAudience          string
 	RateLimitLoginPerMin int
 	LogLevel             string
-	cookieSecure		 bool
+	CookieSecure		 bool
 }
 
 func Load() (*Config, error) {
@@ -45,7 +45,7 @@ func Load() (*Config, error) {
 		JWTIssuer:         getenv("JWT_ISSUER", "campus-identity"),
 		JWTAudience:       getenv("JWT_AUDIENCE", "campus-api"),
 		LogLevel:          getenv("LOG_LEVEL", "info"),
-		cookieSecure:		getenv("COOKIE_SECURE", false),
+		CookieSecure: getenvBool("COOKIE_SECURE", false),
 	}
 
 	var err error
@@ -102,4 +102,18 @@ func getenvDuration(key string, fallback time.Duration) (time.Duration, error) {
 		return 0, fmt.Errorf("invalid duration %q: %w", v, err)
 	}
 	return d, nil
+}
+
+func getenvBool(key string, fallback bool) bool {
+    value := os.Getenv(key)
+    if value == "" {
+        return fallback
+    }
+
+    parsed, err := strconv.ParseBool(value)
+    if err != nil {
+        return fallback
+    }
+
+    return parsed
 }

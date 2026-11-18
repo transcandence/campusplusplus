@@ -82,7 +82,7 @@ func run() error {
 		cfg.JWTAccessTTL,
 		cfg.JWTRefreshTTL,
 	)
-	authHandler := handler.NewAuthHandler(authService, publicKey. cfg.cookieSecure)
+	authHandler := handler.NewAuthHandler(authService, publicKey, cfg.CookieSecure,)
 	if cfg.Env == "prod" {
 		gin.SetMode(gin.ReleaseMode)
 	}

@@ -71,8 +71,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 func (h *AuthHandler) Refresh(c *gin.Context) {
 	refreshToken, err := c.Cookie("refresh_token")
-	if err != nil || refreshToken == "" 
-	{
+	if err != nil || refreshToken == "" {
     	respondProblem(c,http.StatusUnauthorized,model.ErrCodeInvalidRefresh,"Refresh token is required",)
     	return
 	}
