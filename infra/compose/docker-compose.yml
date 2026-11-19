@@ -80,6 +80,19 @@ services:
     profiles: [seed]
     networks: [app_net]
 
+  
+  housing:
+    image: campus_housing:local
+    build:
+      context: ../../
+      dockerfile: services/housing/api/Dockerfile
+    ports:
+      - "4041:8080"
+    expose:
+      - "8080"
+    profiles: [housing, all]
+    networks: [app_net]
+
   postgres:
     image: postgres:17
     env_file:
