@@ -109,7 +109,7 @@ services:
       - "443:443"
     depends_on:
       api-gateway:
-        condition: service_completed_successfully
+        condition: service_started
     volumes:
       - ./nginx/certs:/etc/nginx/certs:ro
     profiles:
