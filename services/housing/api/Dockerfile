@@ -9,7 +9,7 @@ ENV GOWORK=off \
 WORKDIR /src
 
 COPY services/housing/api/go.* ./services/housing/api/
-COPY platform/go.* ./platform/go/
+COPY platform/go/go.* ./platform/go/
 
 RUN cd platform/go && go mod download
 RUN cd services/housing/api && go mod download
@@ -31,8 +31,8 @@ WORKDIR /app
 
 COPY --from=builder --chown=app:app /out/ ./
 
-# COPY --from=builder --chown=app:app \
-#     /src/services/housing/api/migrations ./migrations
+COPY --from=builder --chown=app:app \
+    /src/services/housing/api/migrations ./migrations
 
 USER app
 
