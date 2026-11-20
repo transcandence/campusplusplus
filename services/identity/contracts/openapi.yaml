@@ -570,10 +570,10 @@ components:
           format: password
           writeOnly: true
           minLength: 8
-          maxLength: 128
+          maxLength: 72
         userType:
           type: string
-          enum: [student, worker, guest]
+          enum: [student, guest]
         subtypeAttributes:
           type: object
           additionalProperties: true

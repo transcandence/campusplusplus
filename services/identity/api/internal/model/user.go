@@ -33,12 +33,23 @@ const (
 	StatusSuspended           Status = "suspended"
 )
 
+type RegisterInput struct {
+    FullName string
+    Email    *string
+    Phone    *string
+    Password *string
+    UserType string
+    Gender   *string
+	CampusID int64
+	Affiliation Affiliation
+}
+
 type User struct {
 	ID           int64       `db:"id"`
 	FirstName    string      `db:"first_name"`
 	LastName     string      `db:"last_name"`
-	Email        string      `db:"email"`
-	PhoneNumber  string      `db:"phone_number"`
+	Email        *string      `db:"email"`
+	PhoneNumber  *string      `db:"phone_number"`
 	Birthday     *time.Time  `db:"birthday"`
 	Affiliation  Affiliation `db:"affiliation"`
 	Role         Role        `db:"role"`
@@ -63,16 +74,22 @@ type UserMe struct {
 	CreatedAt   time.Time   `json:"createdAt"`
 }
 
+func IsSelfRegisterRole(r Role) bool {
+    switch r {
+    case RoleStudent, RoleGuest:
+        return true
+    }
+    return false
+}
+
 func (u *User) ToMe(campus CampusCode) UserMe {
-	return UserMe{
-		ID:          u.ID,
-		Email:       u.Email,
-		FirstName:   u.FirstName,
-		LastName:    u.LastName,
-		Affiliation: u.Affiliation,
-		Role:        u.Role,
-		Status:      u.Status,
-		Campus:      campus,
-		CreatedAt:   u.CreatedAt,
-	}
+	email := ""
+    if u.Email != nil {
+        email = *u.Email
+    }
+    return UserMe{
+        ID: u.ID, Email: email, FirstName: u.FirstName, LastName: u.LastName,
+        Affiliation: u.Affiliation, Role: u.Role, Status: u.Status,
+        Campus: campus, CreatedAt: u.CreatedAt,
+    }
 }
