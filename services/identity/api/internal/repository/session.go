@@ -41,7 +41,7 @@ func (r *SessionRepository) Create(ctx context.Context, s *model.Session) error 
 
 func (r *SessionRepository) FindByTokenHash(ctx context.Context, tokenHash []byte) (*model.Session, error) {
 	const query = `
-		SELECT id, user_id, token_hash, ip_address, user_agent, expires_at,
+		SELECT id, user_id, token_hash, ip_address::text, user_agent, expires_at,
 		       revoked_at, last_used_at, family_id, rotated_at, replaced_by,
 		       created_at, updated_at
 		FROM sessions
