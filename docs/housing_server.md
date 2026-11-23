@@ -85,34 +85,63 @@ then one operator is released from $k$ and given to the residence $j$ of the old
 $$n_k \leftarrow n_k - 1 \qquad n_j \leftarrow n_j + 1$$
 
 The total $N$ stays the same. This is repeated while there is a residence that can release an operator and a request that is waiting. [Open: when this happens]
-![[2- Source-material/Attachment/Excalidraw/Drawing 2026-11-19 18.02.13.excalidraw.md#^frame=79OjdVuj|1000]]
-![[2- Source-material/Attachment/Excalidraw/Drawing 2026-11-19 18.02.13.excalidraw.md#^frame=dKqUwfIe|100%]]
 
-#### 5. Morning and evening bookings
 
-##### Time windows
-When a resident requests the cleaning of a Living Unit, they book a **time window**: **morning** or **evening** [Open: exact hours of each window]. Common Areas are not booked. They must always be cleaned, so they take a constant part of the shift.
 
-The shift duration $D$ is therefore divided into three parts. Let $p_M$ be the share of the shift reserved for morning Living Units, $p_E$ the share for evening Living Units and $p_C$ the share for Common Areas:
 
-$$p_M + p_E + p_C = 100\%$$
 
-where $p_C$ is constant. The time available in one shift for each part is:
 
-$$D_M = p_M \times D \qquad D_E = p_E \times D \qquad D_C = p_C \times D$$
+![[2- Source-material/Attachment/Excalidraw/Drawing 2026-11-19 18.02.13.excalidraw.md#^frame=dKqUwfIe|1000]]
 
-For example, if $p_C = 20\%$ then $D_C = 108$ min, and the other 432 min are split between the morning and the evening. [Open: how $p_M$ and $p_E$ are chosen]
+
+
+
+
+
+
+
 ![[2- Source-material/Attachment/Excalidraw/Drawing 2026-11-19 18.02.13.excalidraw.md#^frame=A8aTtnQn|99%]]
 
+
+
+
+#### 4. Distributing operators across residences
+
+##### Describing load
+The day's workload is split between the $K$ residences by a share $\alpha_k$, where each share is between 0 and 1 and the shares add up to 1:
+
+$$\sum_{k=1}^{K} \alpha_k = 1$$
+
+At the start of the algorithm, $\alpha_k^{0}$ is the portion of dorm units that can be cleaned that day in residence $k$. For example, on day one each of the 5 residences gets:  $$\alpha_k^{0} = 20\%$$
+
+Each residence $k$ is served by a whole number of operators $n_k$, and an operator never travels to another residence. Operators are indivisible, so each $n_k$ must be a whole number, and together they must use exactly the $N$ available operators:
+
+$$n_k \in \mathbb{N} \qquad \sum_{k=1}^{K} n_k = N$$
+
+Residence $k$ therefore has $n_k$ shifts of $D$ minutes each, and its final share of operators is 
+$$\alpha_k = n_k / N$$
+
+##### Initialization
+The ideal number of operators for residence $k$ is $\alpha_k^{0} N$, which is usually not an integer. We first give each residence the integer part of its share:
+
+$$n_k = \lfloor \alpha_k^{0} N \rfloor$$
+
+The operators that are left over are:
+
+$$r = N - \sum_{k=1}^{K} \lfloor \alpha_k^{0} N \rfloor$$
+
+These $r$ operators are given one each to the $r$ residences with the $r$ residences with the largest fractional part $\{\alpha_k^{0} N\} = \alpha_k^{0} N - \lfloor \alpha_k^{0} N \rfloor$. [Open: tie-break rule when several residences have the same fractional part]
+
 ##### Receiving requests
-This refines the rule from section 4. A request for residence $k$ in window $w \in \{M, E\}$ with estimated duration $t$ becomes a **task** if some shift of residence $k$ still has at least $t$ minutes free **in window $w$**. Otherwise it is placed on the **waiting list** of that window. The waiting list of each window is served in first come, first served order.
+Cleaning requests arrive one at a time, in order of arrival. A request for residence $k$ with estimated duration $t$ becomes a **task** if it fits in one of the $n_k$ shifts of that residence, meaning that some shift still has at least $t$ minutes free. Otherwise it is placed on the **waiting list**.
 
-##### Moving an operator (updated)
-An operator can only be released from residence $k$ if the accepted work of **each** part still fits in one shift less:
+##### Moving an operator
+Operators are moved whole, never in parts. If the accepted tasks of residence $k$ fit in one shift less:
 
-$$\sum_{i \in M(k)} t_i \le (n_k - 1) \times D_M \qquad \sum_{i \in E(k)} t_i \le (n_k - 1) \times D_E \qquad C_k \le (n_k - 1) \times D_C$$
+$$\sum_{i \in \text{tasks}(k)} t_i \le (n_k - 1) \times D$$
 
-where $M(k)$ and $E(k)$ are the accepted morning and evening tasks of residence $k$, and $C_k$ is the time of its Common Areas.
+then one operator is released from $k$ and given to the residence $j$ of the oldest request on the waiting list (first come, first served):
 
+$$n_k \leftarrow n_k - 1 \qquad n_j \leftarrow n_j + 1$$
 
-
+The total $N$ stays the same. This is repeated while there is a residence that can release an operator and a request that is waiting. [Open: when this happens]
