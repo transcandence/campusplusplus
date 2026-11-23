@@ -9,7 +9,6 @@ Every day, the housing service must clean many spaces spread over several reside
 Each cleaning is a **task** with an estimated duration. Tasks are carried out by **housekeeper operators**, and each operator works one **cleaning shift** between 08:00 and 17:00 (540 minutes).
 
 The algorithm starts at 20:00 on the day before the cleaning. From then on, cleaning requests keep arriving. Each request is either converted into a task for the next day or placed on a **waiting list**. The algorithm stops once every task that has to be collected is scheduled. From this unordered pool of tasks, it produces **one ordered list of tasks per shift**.
-
 ![[2- Source-material/Attachment/Excalidraw/Drawing 2026-11-19 18.02.13.excalidraw.md#^frame=iZdLh8dr|100%]]
 
 The algorithm has three goals:
@@ -31,7 +30,6 @@ We define the error as:
 $$\text{Error} = T_{\text{tot}} - T_r$$
 - If $\text{Error} \ge 0$, all tasks can be done in time.
 - If $\text{Error} < 0$, there is not enough time.
-
 ![[2- Source-material/Attachment/Excalidraw/Drawing 2026-11-19 18.02.13.excalidraw.md#^frame=gLwLrDGK|1000]]  
 
 ---
@@ -46,7 +44,6 @@ $$T_r = 160 \times 30 + 75 \times 45 = 4800 + 3375 = 8175 \text{ min}$$
 Dividing by the shift duration $D = 540$ min gives the minimum number of operators:
 $$N_{\min} = \left\lceil \frac{T_r}{D} \right\rceil = \left\lceil \frac{8175}{540} \right\rceil = \lceil 15.14 \rceil = 16$$
 With 15 operators, $T_{\text{tot}} = 15 \times 540 = 8100$ min, which is 75 min short. This is a lower bound: it ignores corridors, laundry, apartments, check-outs, travel time and breaks.
-
 ![[2- Source-material/Attachment/Excalidraw/Drawing 2026-11-19 18.02.13.excalidraw.md#^frame=o6vTdJT0|99%]]
 
 #### 4. Distributing operators across residences
