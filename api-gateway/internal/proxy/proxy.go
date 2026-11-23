@@ -30,7 +30,11 @@ func NewProxy(identityURL, housingURL, transportURL string) (*httputil.ReversePr
 	if err != nil {
 		return  nil, fmt.Errorf("invalid TRANSPORT_URL: %w", err)
 	}
-	routes := []route{	
+	routes := []route{
+		{
+			prefix: "/me",
+			target: identityTarget,
+		},
 		{
 			prefix: "/api/v1/auth",
 			target: identityTarget,

@@ -5,6 +5,10 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+<<<<<<< HEAD
+=======
+	"log"
+>>>>>>> origin/dev
 
 	"github.com/gin-gonic/gin"
 	"github.com/transcandence/campusplusplus/services/identity/api/internal/model"
@@ -65,6 +69,67 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
+<<<<<<< HEAD
+=======
+func (h *AuthHandler) Register(c *gin.Context) {
+	var req RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil{
+				respondProblem(c, http.StatusUnprocessableEntity, model.ErrCodeValidationFailed, "Invalid request body")
+				return 
+	}
+	hasEmail := req.Email != nil && strings.TrimSpace(string(*req.Email)) != ""
+	hasPhone := req.Phone != nil && strings.TrimSpace(*req.Phone) != ""
+
+	if !hasEmail && !hasPhone {
+		respondProblem(c, http.StatusUnprocessableEntity, model.ErrCodeValidationFailed, "At least one of 'email' or 'phone' must be provided")
+		return
+	}
+	if req.Password == nil || *req.Password == "" {
+		respondProblem(c, http.StatusUnprocessableEntity, model.ErrCodeValidationFailed, "Password is required")
+		return
+	}
+	var emailStr *string
+	if req.Email != nil{
+		e:= string(*req.Email)
+		emailStr = &e
+	}
+	var genderStr *string
+	if req.Gender != nil {
+		g := string(*req.Gender)
+		genderStr = &g
+	}
+	if len(*req.Password) < 8 || len(*req.Password) > 72 {
+    	respondProblem(c, http.StatusUnprocessableEntity, model.ErrCodeValidationFailed, "Password must be between 8 and 72 characters")
+    	return
+	}
+	input := model.RegisterInput{
+		FullName: 	req.FullName,
+		Email: 		emailStr,
+		Phone: 		req.Phone,
+		Password: 	req.Password,
+		UserType: 	string(req.UserType),
+		Gender: 	genderStr,
+		CampusID: 	1,
+		// Affiliation: model.Affiliation, 
+	}
+	result, err := h.authService.Register(c.Request.Context(), input)
+	if err != nil {
+    	log.Printf("REGISTER ERROR: %+v", err)
+		switch {
+		case errors.Is(err, model.ErrUserAlreadyExists):
+			respondProblem(c, http.StatusConflict, model.ErrCodeUserAlreadyExists, "An account with this email or phone already exists")
+		case errors.Is(err, model.ErrInvalidRole):
+			respondProblem(c, http.StatusUnprocessableEntity, model.ErrCodeInavlidRole, model.MsgInvalidRole)
+		default:
+			respondProblem(c, http.StatusInternalServerError, model.ErrCodeInternalError, model.MsgInternalError)
+		}
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	c.JSON(http.StatusCreated, result)
+}
+
+>>>>>>> origin/dev
 func (h *AuthHandler) Refresh(c *gin.Context) {
 	var req RefreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil{
@@ -128,7 +193,11 @@ func (h *AuthHandler) LogoutAll(c *gin.Context) {
 func (h *AuthHandler) GetMe(c *gin.Context) {
 	userIDVal, exists := c.Get("userID")
 	if !exists {
+<<<<<<< HEAD
 		respondProblem(c, http.StatusUnauthorized, model.ErrCodeUnauthorized, "Authentification required")
+=======
+		respondProblem(c, http.StatusUnauthorized, model.ErrCodeUnauthorized, model.MsgUnauthorized)
+>>>>>>> origin/dev
 		return
 	}
 	userID, ok := userIDVal.(int64)
@@ -149,3 +218,12 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	c.JSON(http.StatusOK, userMe)
 }
+<<<<<<< HEAD
+=======
+
+func (h *AuthHandler) UpdateMe(c *gin.Context) {
+    c.JSON(http.StatusNotImplemented, gin.H{
+        "message": "Not implemented yet",
+    })
+}
+>>>>>>> origin/dev

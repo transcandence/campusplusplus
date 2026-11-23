@@ -41,7 +41,11 @@ func (r *SessionRepository) Create(ctx context.Context, s *model.Session) error 
 
 func (r *SessionRepository) FindByTokenHash(ctx context.Context, tokenHash []byte) (*model.Session, error) {
 	const query = `
+<<<<<<< HEAD
 		SELECT id, user_id, token_hash, ip_address, user_agent, expires_at,
+=======
+		SELECT id, user_id, token_hash, ip_address::text, user_agent, expires_at,
+>>>>>>> origin/dev
 		       revoked_at, last_used_at, family_id, rotated_at, replaced_by,
 		       created_at, updated_at
 		FROM sessions
@@ -87,9 +91,14 @@ func (r *SessionRepository) Rotate(ctx context.Context, oldSessionID int64, newS
 		UPDATE sessions
 		   SET revoked_at   = now(),
 		       rotated_at   = now(),
+<<<<<<< HEAD
 		       last_used_at = now(),
 		       replaced_by  = $1
 		 WHERE id = $2
+=======
+		       last_used_at = now()
+		 WHERE id = $1
+>>>>>>> origin/dev
 		   AND revoked_at IS NULL;
 	`
 	cmdTag, err := tx.Exec(ctx, updateQuery, newSession.ID, oldSessionID)
@@ -116,11 +125,22 @@ func (r *SessionRepository) Rotate(ctx context.Context, oldSessionID int64, newS
 	if err != nil {
 		return fmt.Errorf("session repo rotate insert: %w", err)
 	}
+<<<<<<< HEAD
 
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("session repo rotate commit: %w", err)
 	}
 	return nil
+=======
+	if _, err := tx.Exec(ctx, `UPDATE sessions SET replaced_by = $1 WHERE id = $2`,
+		newSession.ID, oldSessionID); err != nil {
+		return fmt.Errorf("session repo rotate link: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("session repo rotate commit: %w", err)
+	}
+	return tx.Commit(ctx)
+>>>>>>> origin/dev
 }
 
 func (r *SessionRepository) RevokeByID(ctx context.Context, sessionID int64) error{

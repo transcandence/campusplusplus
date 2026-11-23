@@ -3,13 +3,15 @@ node_modules/
 .env
 .env.*
 !.env.example
+!.env.docker.example
 *.log
 dist/
 bin/
 go.work.sum
 platform/go/tests/
 
-# Keys & Secrets
+secrets/*
+infra/compose/secrets/
 *.pem
 
 # Next.js

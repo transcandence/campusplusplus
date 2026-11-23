@@ -55,28 +55,29 @@ func newDirector(routes []route) func(*http.Request) {
 	return func(req *http.Request) {
 		removeHopByHeaders(req.Header)
 		ensureRequestID(req)
-
+		matched := false
 		for _, rt := range routes {
 			if req.URL.Path != rt.prefix && !strings.HasPrefix(req.URL.Path, rt.prefix+"/") {
 				continue
 			}
-
 			req.URL.Scheme = rt.target.Scheme
 			req.URL.Host = rt.target.Host
 			req.Host = rt.target.Host
-
-			trimmed := strings.TrimPrefix(req.URL.Path, rt.prefix)
+			trimmed := strings.TrimPrefix(req.URL.Path, "/api/v1")
 			if !strings.HasPrefix(trimmed, "/") {
 				trimmed = "/" + trimmed
 			}
-
 			basePath := strings.TrimSuffix(rt.target.Path, "/")
 			req.URL.Path = basePath + trimmed
 			req.URL.RawPath = ""
-
+			matched = true
 			break
 		}
-
+		if !matched {
+			req.URL.Scheme = ""
+			req.URL.Host = ""
+			return
+		}
 		if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
 			if prior, ok := req.Header["X-Forwarded-For"]; ok {
 				clientIP = strings.Join(prior, ", ") + ", " + clientIP

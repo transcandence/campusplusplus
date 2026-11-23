@@ -43,7 +43,9 @@ func LoadFromEnv() (*Config, error) {
 	if cfg.TransportURL == "" {
 		return nil, fmt.Errorf("missing required environment variable: TRANSPORT_URL")
 	}
-
+	if cfg.JWTPublicKeyPath == "" {
+		return nil, fmt.Errorf("missing required environment variable: JWT_PUBLIC_KEY_PATH")
+	}
 	return cfg, nil
 }
 

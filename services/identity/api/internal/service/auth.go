@@ -7,11 +7,26 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+<<<<<<< HEAD
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/transcandence/campusplusplus/platform/go/auth"
+=======
+	// "os/user"
+	"strings"
+	"time"
+
+	// ... tes imports existants ...
+	"encoding/json"
+
+	"github.com/google/uuid"
+	"github.com/transcandence/campusplusplus/platform/go/auth"
+	"golang.org/x/crypto/bcrypt"
+
+	// "github.com/transcandence/campusplusplus/services/identity/api/internal/handler"
+>>>>>>> origin/dev
 	"github.com/transcandence/campusplusplus/services/identity/api/internal/model"
 	"github.com/transcandence/campusplusplus/services/identity/api/internal/repository"
 )
@@ -46,6 +61,13 @@ type TokenPair struct {
 	ExpiresIn    int    `json:"expires_in"`
 	RefreshToken string `json:"refresh_token"`
 }
+<<<<<<< HEAD
+=======
+// type UserRepo interface {
+	// CreateUserWithOutbox(ctx context.Context, user model.User, eventPayload []byte) error
+	// CheckEmailOrPhoneExists(ctx context.Context, email, phone_number *string) (bool, error)
+// }
+>>>>>>> origin/dev
 
 func (s *AuthService) Login(
 	ctx context.Context,
@@ -119,6 +141,86 @@ func (s *AuthService) Login(
 	}, nil
 }
 
+<<<<<<< HEAD
+=======
+func splitFullName(fullName string) (string, string) {
+	parts := strings.Fields(strings.TrimSpace(fullName))
+	if len(parts) == 0 {
+		return "", ""
+	}
+	firstName := parts[0]
+	lastName := strings.Join(parts[1:], " ")
+	if lastName == ""{
+		lastName = firstName
+	}
+	return firstName, lastName
+}
+
+func (s *AuthService) Register(ctx context.Context, input model.RegisterInput) (*model.UserMe, error) {
+    role := model.Role(strings.ToLower(strings.TrimSpace(input.UserType)))
+    if !model.IsSelfRegisterRole(role) {
+        return nil, model.ErrInvalidRole
+    }
+    var email, phone *string
+    if input.Email != nil {
+        if e := strings.ToLower(strings.TrimSpace(*input.Email)); e != "" {
+            email = &e
+        }
+    }
+    if input.Phone != nil {
+        if p := strings.TrimSpace(*input.Phone); p != "" {
+            phone = &p
+        }
+    }
+    exists, err := s.userRepo.CheckEmailOrPhoneExists(ctx, email, phone)
+    if err != nil {
+        return nil, err
+    }
+    if exists {
+        return nil, model.ErrUserAlreadyExists
+    }
+
+    if input.Password == nil {
+        return nil, errors.New("password is required")
+    }
+    hash, err := bcrypt.GenerateFromPassword([]byte(*input.Password), bcrypt.DefaultCost)
+    if err != nil {
+        return nil, err
+    }
+    firstName, lastName := splitFullName(input.FullName)
+    affiliation := model.Affiliation(input.Affiliation)
+    if affiliation == "" {
+        affiliation = model.AffiliationUM6P
+    }
+    newUser := model.User{
+        FirstName:    firstName,
+        LastName:     lastName,
+        Email:        email,
+        PhoneNumber:  phone,
+        Gender:       input.Gender,
+        PasswordHash: string(hash),
+        Affiliation:  affiliation,
+        Role:         role,
+        Status:       model.StatusPendingVerification,
+        CampusID:     input.CampusID,
+    }
+    eventPayload, err := json.Marshal(map[string]any{
+        "fullName": input.FullName,
+        "email":    email,
+        "phone":    phone,
+        "userType": string(role),
+    })
+    if err != nil {
+        return nil, err
+    }
+    userID, err := s.userRepo.CreateUserWithOutbox(ctx, newUser, eventPayload)
+    if err != nil {
+        return nil, err
+    }
+    return s.userRepo.FindMeByID(ctx, userID)
+}
+
+>>>>>>> origin/dev
 func (s *AuthService) Refresh(
 	ctx context.Context,
 	rawRefreshToken string,
@@ -142,10 +244,24 @@ func (s *AuthService) Refresh(
 	}
 	user, err := s.userRepo.FindByID(ctx, session.UserID)
 	if err != nil{
+<<<<<<< HEAD
 		return nil, fmt.Errorf("finding user for session: %w", err)
 	}
 	if user.Status != model.StatusActive {
 		return nil, model.ErrAccountSuspended
+=======
+		if errors.Is(err, model.ErrUserNotFound){
+			return nil, model.ErrInvalidRefresh
+		}
+		return nil, fmt.Errorf("finding user for session: %w", err)
+	}
+	switch user.Status{
+	case model.StatusActive:
+	case model.StatusSuspended:
+		return nil, model.ErrAccountSuspended
+	default:
+		return nil, model.ErrInvalidRefresh
+>>>>>>> origin/dev
 	}
 	newRawRefreshToken, err := auth.GenerateOpaqueRefreshToken()
 	if err != nil {
@@ -162,6 +278,12 @@ func (s *AuthService) Refresh(
 		FamilyID: session.FamilyID,
 	}
 	if err := s.sessionRepo.Rotate(ctx, session.ID, newSession); err != nil{
+<<<<<<< HEAD
+=======
+		if errors.Is(err, model.ErrSessionNotFound) {
+        	return nil, model.ErrInvalidRefresh
+    	}
+>>>>>>> origin/dev
 		return nil, fmt.Errorf("rotating session in repo: %w", err)
 	}
 	accessToken, err := auth.GenerateAccessToken(
@@ -201,7 +323,11 @@ func (s *AuthService) Logout(ctx context.Context, rawRefreshToken string) error{
 
 func (s *AuthService) LogoutAll(ctx context.Context, userID int64) error{
 	if err := s.sessionRepo.RevokeAllByUserID(ctx, userID); err != nil{
+<<<<<<< HEAD
 		return fmt.Errorf("revoking all sessions for user: %w, err")
+=======
+		return fmt.Errorf("revoking all sessions for user: %w", err)
+>>>>>>> origin/dev
 	}
 	return nil
 }

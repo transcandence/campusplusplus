@@ -12,10 +12,19 @@ var (
 	ErrInvalidRefresh     = errors.New("invalid or expired refresh token")
 	ErrAccountSuspended   = errors.New("account is suspended")
 	ErrAccountPending     = errors.New("account email pending verification")
+<<<<<<< HEAD
+=======
+	ErrUserAlreadyExists  = errors.New("user already exists")
+	ErrInvalidRole		  = errors.New("invalid role")
+>>>>>>> origin/dev
 )
 
 const (
 	MsgInvalidBody        = "Invalid request body"
+<<<<<<< HEAD
+=======
+	MsgInvalidRole		  =	"Role must be 'student' or 'guest'"
+>>>>>>> origin/dev
 	MsgEmailPasswordReq   = "Email and password are required"
 	MsgInvalidCredentials = "Invalid email or password"
 	MsgAccountSuspended   = "This account is suspended. Contact the administration."
@@ -50,7 +59,9 @@ type FieldError struct {
 }
 
 const (
+	ErrCodeUserAlreadyExists = "user_already_exists"
 	ErrCodeInvalidCredentials = "invalid_credentials"
+	ErrCodeInavlidRole		  = "invalid role"
 	ErrCodeInvalidRefresh     = "invalid_refresh"
 	ErrCodeAccountSuspended   = "account_suspended"
 	ErrCodeAccountPending     = "account_pending_verification"
