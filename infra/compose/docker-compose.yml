@@ -65,6 +65,23 @@ services:
     restart: "no"
     profiles: [identity, seed, all]
     networks: [app_net]
+    
+  housing-migrate:
+    image: campus_housing:local
+    build:
+      context: ../../
+      dockerfile: services/housing/api/Dockerfile
+    env_file:
+      - ../../services/identity/api/.env.docker
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/campus_housing?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["./migrate", "up"]
+    restart: "no"
+    profiles: [housing, all]
+    networks: [app_net]
 
   identity-seed:
     image: campus_identity:local
@@ -87,9 +104,13 @@ services:
       dockerfile: services/housing/api/Dockerfile
     ports:
       - "4041:8080"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/campus_housing?sslmode=disable
+    env_file:
+      - ../../services/housing/api/.env.docker
     expose:
       - "8080"
-    profiles: [housing, all]
+    profiles: [housing, infra, all]
     networks: [app_net]
     
   postgres:

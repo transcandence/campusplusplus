@@ -20,7 +20,9 @@ COPY services/housing/api/ ./services/housing/api/
 WORKDIR /src/services/housing/api
 
 RUN go build -trimpath -ldflags="-s -w" \
-    -o /out/server ./cmd/server/
+    -o /out/server ./cmd/server/ \
+    && go build -trimpath -ldflags="-s -w" \
+    -o /out/migrate ./cmd/migrate/main.go
 
 
 FROM alpine:3.22 AS runtime
