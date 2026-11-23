@@ -118,6 +118,18 @@ services:
       - all
     networks:
       - app_net
+  frontend:
+    build:
+      context: ../..
+      dockerfile: frontend/Dockerfile
+    container_name: campus-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+    networks:
+      - app_net
+
 
 secrets:
   jwt_private_key:

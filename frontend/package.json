@@ -11,7 +11,7 @@
   "dependencies": {
     "@platform/api-client": "workspace:*",
     "@platform/ui": "workspace:*",
-    "next": "16.4.3",
+    "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
