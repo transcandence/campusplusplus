@@ -79,7 +79,7 @@ services:
     restart: "no"
     profiles: [seed]
     networks: [app_net]
-
+    
   postgres:
     image: postgres:17
     env_file:
@@ -99,6 +99,25 @@ services:
       timeout: 3s
       retries: 10
       start_period: 30s
+      
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    ports: 
+      - "80:80"
+      - "443:443"
+    depends_on:
+      api-gateway:
+        condition: service_started
+    volumes:
+      - ./nginx/certs:/etc/nginx/certs:ro
+    profiles:
+      - gateway
+      - identity
+      - all
+    networks:
+      - app_net
 
 secrets:
   jwt_private_key:

@@ -1,0 +1,1 @@
+/home/_hippo/dev/campus/docs/domain-model.md

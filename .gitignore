@@ -9,6 +9,16 @@ dist/
 bin/
 go.work.sum
 platform/go/tests/
+infra/compose/secrets/
+
+secrets/*
+infra/compose/secrets/
+*.pem
+
+# Keys & Secrets
+*.pem
+
+
 secrets/*
 infra/compose/secrets/
 *.pem
