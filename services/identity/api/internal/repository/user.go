@@ -186,3 +186,39 @@ func (r *UserRepository) FindMeByID(ctx context.Context, userID int64) (*model.U
 	}
 	return &me, nil
 }
+
+// FindCampusIDByCode returns the numeric PK for a given campus code.
+func (r *UserRepository) FindCampusIDByCode(ctx context.Context, code model.CampusCode) (int64, error) {
+	const query = `SELECT id FROM campuses WHERE code = $1;`
+	var id int64
+	err := r.pool.QueryRow(ctx, query, code).Scan(&id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, fmt.Errorf("campus code %q not found", code)
+		}
+		return 0, fmt.Errorf("user repo find campus id by code: %w", err)
+	}
+	return id, nil
+}
+
+// UpdateMe updates first_name, last_name and gender for the given user and
+// returns the refreshed public profile.
+func (r *UserRepository) UpdateMe(ctx context.Context, userID int64, firstName, lastName string, gender *string) (*model.UserMe, error) {
+	const query = `
+		UPDATE users
+		   SET first_name = $2,
+		       last_name  = $3,
+		       gender     = $4,
+		       updated_at = now()
+		 WHERE id = $1;
+	`
+	cmdTag, err := r.pool.Exec(ctx, query, userID, firstName, lastName, gender)
+	if err != nil {
+		return nil, fmt.Errorf("user repo update me: %w", err)
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return nil, model.ErrUserNotFound
+	}
+	return r.FindMeByID(ctx, userID)
+}
+

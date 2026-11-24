@@ -314,3 +314,18 @@ func (s *AuthService) GetMe(ctx context.Context, userID int64) (*model.UserMe, e
 	}
 	return user, nil
 }
+
+// ResolveCampusID validates a campus code and returns its database ID.
+func (s *AuthService) ResolveCampusID(ctx context.Context, code string) (int64, error) {
+	campusCode := model.CampusCode(strings.ToLower(strings.TrimSpace(code)))
+	if !campusCode.Valid() {
+		return 0, fmt.Errorf("invalid campus code: %q", code)
+	}
+	return s.userRepo.FindCampusIDByCode(ctx, campusCode)
+}
+
+// UpdateMe updates the authenticated user's editable profile fields.
+func (s *AuthService) UpdateMe(ctx context.Context, userID int64, fullName string, gender *string) (*model.UserMe, error) {
+	firstName, lastName := splitFullName(fullName)
+	return s.userRepo.UpdateMe(ctx, userID, firstName, lastName, gender)
+}
