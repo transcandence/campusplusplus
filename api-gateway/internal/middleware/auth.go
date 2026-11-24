@@ -28,6 +28,8 @@ func isPublicRoute(Method, Path string) bool{
 		return true
 	case Method == http.MethodPost && Path =="/api/v1/auth/refresh":
 		return true
+	case Method == http.MethodPost && Path =="/api/v1/auth/register":
+		return true
 	case Method == http.MethodGet && Path == "/healthz":
 		return  true
 	default :

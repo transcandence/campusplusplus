@@ -91,7 +91,7 @@ func (r *SessionRepository) Rotate(ctx context.Context, oldSessionID int64, newS
 		 WHERE id = $1
 		   AND revoked_at IS NULL;
 	`
-	cmdTag, err := tx.Exec(ctx, updateQuery, newSession.ID, oldSessionID)
+	cmdTag, err := tx.Exec(ctx, updateQuery, oldSessionID)
 	if err != nil {
 		return fmt.Errorf("session repo rotate update old: %w", err)
 	}

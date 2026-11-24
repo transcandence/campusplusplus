@@ -48,7 +48,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		case errors.Is(err, model.ErrInvalidCredentials):
 			respondProblem(c, http.StatusUnauthorized, model.ErrCodeInvalidCredentials, model.MsgInvalidCredentials)
 		case errors.Is(err, model.ErrAccountSuspended):
-			respondProblem(c, http.StatusForbidden, model.ErrCodeAccountSuspended, model.MsgAccountSuspended)
+			respondProblem(c, http.StatusUnauthorized, model.ErrCodeInvalidRefresh, model.MsgInvalidRefresh)
 		case errors.Is(err, model.ErrAccountPending):
 			respondProblem(c, http.StatusForbidden, model.ErrCodeAccountPending, model.MsgAccountPending)
 		default:
@@ -97,6 +97,20 @@ func (h *AuthHandler) Register(c *gin.Context) {
     	respondProblem(c, http.StatusUnprocessableEntity, model.ErrCodeValidationFailed, "Password must be between 8 and 72 characters")
     	return
 	}
+	// Campus code is passed via subtypeAttributes.campus_code or defaults to "rabat".
+	campusCodeStr := "rabat"
+	if req.SubtypeAttributes != nil {
+		if v, ok := (*req.SubtypeAttributes)["campus_code"]; ok {
+			if s, ok := v.(string); ok && s != "" {
+				campusCodeStr = s
+			}
+		}
+	}
+	campusID, err := h.authService.ResolveCampusID(c.Request.Context(), campusCodeStr)
+	if err != nil {
+	    respondProblem(c, http.StatusUnprocessableEntity, model.ErrCodeValidationFailed, "Invalid campus code")
+	    return
+	}
 	input := model.RegisterInput{
 		FullName: 	req.FullName,
 		Email: 		emailStr,
@@ -104,7 +118,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		Password: 	req.Password,
 		UserType: 	string(req.UserType),
 		Gender: 	genderStr,
-		CampusID: 	1,
+		CampusID: 	campusID,
 		// Affiliation: model.Affiliation, 
 	}
 	result, err := h.authService.Register(c.Request.Context(), input)
@@ -141,7 +155,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		case errors.Is(err, model.ErrInvalidRefresh):
 			respondProblem(c, http.StatusUnauthorized, model.ErrCodeInvalidRefresh, "Invalid or expired refresh token")
 		case errors.Is(err, model.ErrAccountSuspended):
-			respondProblem(c, http.StatusForbidden, model.ErrCodeAccountSuspended, model.MsgAccountSuspended)
+			respondProblem(c, http.StatusUnauthorized, model.ErrCodeInvalidRefresh, "Invalid or expired refresh token")
 		default:
 			respondProblem(c, http.StatusInternalServerError, model.ErrCodeInternalError, model.MsgInternalError)
 		}
@@ -210,7 +224,43 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 }
 
 func (h *AuthHandler) UpdateMe(c *gin.Context) {
-    c.JSON(http.StatusNotImplemented, gin.H{
-        "message": "Not implemented yet",
-    })
+	userIDVal, exists := c.Get("userID")
+	if !exists {
+		respondProblem(c, http.StatusUnauthorized, model.ErrCodeUnauthorized, model.MsgUnauthorized)
+		return
+	}
+	userID, ok := userIDVal.(int64)
+	if !ok {
+		respondProblem(c, http.StatusInternalServerError, model.ErrCodeInternalError, model.MsgInternalError)
+		return
+	}
+
+	var req UpdateMeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondProblem(c, http.StatusUnprocessableEntity, model.ErrCodeValidationFailed, "Invalid request body")
+		return
+	}
+	if req.FullName == nil || strings.TrimSpace(*req.FullName) == "" {
+		respondProblem(c, http.StatusUnprocessableEntity, model.ErrCodeValidationFailed, "full_name is required")
+		return
+	}
+
+	var genderStr *string
+	if req.Gender != nil {
+		g := string(*req.Gender)
+		genderStr = &g
+	}
+
+	userMe, err := h.authService.UpdateMe(c.Request.Context(), userID, *req.FullName, genderStr)
+	if err != nil {
+		switch {
+		case errors.Is(err, model.ErrUserNotFound):
+			respondProblem(c, http.StatusUnauthorized, model.ErrCodeUnauthorized, "User not found")
+		default:
+			respondProblem(c, http.StatusInternalServerError, model.ErrCodeInternalError, model.MsgInternalError)
+		}
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	c.JSON(http.StatusOK, userMe)
 }
