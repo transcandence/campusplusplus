@@ -4,11 +4,24 @@ import type { HttpClient } from "../client/types";
 import type {
   LoginRequest,
   TokenResponse,
+  RegisterRequest,
+  RegisterResponse,
   UserMe,
 } from "./identity.types";
 
 export function createIdentityApi(http: HttpClient) {
   return {
+      async register(data: RegisterRequest): Promise<RegisterResponse> {
+      return http.request<RegisterResponse>(
+        "/auth/register",
+        {
+          method: "POST",
+          body: JSON.stringify(data),
+        },
+        false,
+      );
+    },
+
     async login(credentials: LoginRequest,): Promise<TokenResponse>
     {
       const tokens = await http.request<TokenResponse>(
