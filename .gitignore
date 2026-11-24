@@ -22,6 +22,14 @@ infra/compose/secrets/
 secrets/*
 infra/compose/secrets/
 *.pem
+
+# Keys & Secrets
+*.pem
+
+
+secrets/*
+infra/compose/secrets/
+*.pem
 # Next.js
 next-env.d.ts
 *.tsbuildinfo

@@ -102,9 +102,12 @@ $(addprefix test-service-,$(SERVICES)): test-service-%:
 	cd $(SERVICES_DIR)/$*/api && $(GO) test ./...
 
 ##@ Code generation
-gen: gen-go
+gen: gen-go gen-ts
 
 gen-go: $(GEN_FILES)
+
+gen-ts: 	
+	npx pnpm gen
 
 $(SERVICES_DIR)/%/api/internal/handler/generated.go: $(SERVICES_DIR)/%/contracts/openapi.yaml
 	@echo "  -> $*"

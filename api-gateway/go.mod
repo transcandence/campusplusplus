@@ -12,3 +12,9 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	golang.org/x/crypto v0.53.0 // indirect
 )
+
+require (
+	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
+	github.com/transcandence/campusplusplus/platform/go v0.0.0-20261111170903-95bce0a2c899 // indirect
+	golang.org/x/crypto v0.53.0 // indirect
+)
