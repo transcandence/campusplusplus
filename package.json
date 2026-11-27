@@ -9,7 +9,7 @@
     "dev:frontend": "pnpm --filter ./frontend dev",
     "build": "pnpm -r --if-present build",
     "lint": "pnpm -r --if-present lint",
-    "gen": "pnpm exec openapi-typescript services/identity/contracts/openapi.yaml -o platform/ts/api-client/src/generated/identity.ts"
+    "gen": "pnpm exec openapi-typescript services/identity/contracts/openapi.yaml -o platform/ts/api-client/src/generated/identity.ts && pnpm exec openapi-typescript services/housing/contracts/openapi.yaml -o platform/ts/api-client/src/generated/housing.ts"
   },
   "devDependencies": {
     "openapi-typescript": "^7.13.0"

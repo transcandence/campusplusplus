@@ -1,0 +1,230 @@
+// Housing Service — campus_housing
+// Derived from services/housing/api/migrations/0001_init.up.sql
+// (campus_housing is not yet provisioned in the running container — no housing
+// service in docker-compose.yml, so its migrations have never run.)
+
+Project campus_housing {
+  database_type: 'PostgreSQL'
+  Note: 'Housing Service database (spatial hierarchy: campus → residence → building → floor → dorm_unit; occupancy "stays"; cleaning operations).'
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+Enum residence_gender_policy {
+  male_only
+  female_only
+}
+
+Enum dorm_unit_type {
+  room
+  apart
+  corridor
+  kitchen
+  laundry
+}
+
+Enum stay_status {
+  planned
+  active
+  ended
+  cancelled
+}
+
+Enum cleaning_request_status {
+  pending
+  scheduled
+  completed
+  cancelled
+}
+
+Enum cleaning_shift_status {
+  planned
+  in_progress
+  completed
+}
+
+Enum cleaning_task_status {
+  pending
+  in_progress
+  done
+  skipped
+}
+
+// ---------------------------------------------------------------------------
+// Tables
+// ---------------------------------------------------------------------------
+
+Table campuses {
+  id integer [pk, increment]
+  code varchar(30) [not null, unique, note: 'Format: ^[a-z0-9_-]+$']
+  name varchar(60) [not null]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Tenancy boundary. Seeded with rabat, benguerir, laayoune.'
+}
+
+Table residences {
+  id integer [pk, increment]
+  campus_id integer [not null]
+  code varchar(30) [not null, note: 'e.g. "8", "12", "20" — numeric only']
+  name varchar(100) [not null]
+  gender_policy residence_gender_policy [not null]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (campus_id, code) [unique, name: 'uq_residences_campus_code']
+  }
+}
+
+Table buildings {
+  id integer [pk, increment]
+  residence_id integer [not null]
+  code varchar(10) [not null, note: 'e.g. "A", "B", "C" — letters only']
+  name varchar(100) [not null]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (residence_id, code) [unique, name: 'uq_buildings_residence_code']
+  }
+}
+
+Table floors {
+  id integer [pk, increment]
+  building_id integer [not null]
+  floor_number integer [not null, note: 'CHECK >= 0']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (building_id, floor_number) [unique, name: 'uq_floors_building_number']
+  }
+}
+
+Table dorm_units {
+  id integer [pk, increment]
+  floor_id integer [not null]
+  unit_number varchar(30) [not null, note: 'e.g. "1", "14", "CORR", "KITCH", "LAUND"']
+  code varchar(60) [not null, unique, note: 'Canonical full code e.g. "12A2-1", "12A2-CORR"']
+  unit_type dorm_unit_type [not null]
+  capacity integer [not null, default: 1]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (floor_id, unit_number) [unique, name: 'uq_dorm_units_floor_unit_number']
+  }
+
+  Note: 'Capacity invariants: corridor/kitchen/laundry = 0; room = 1; apart >= 1.'
+}
+
+Table building_supervisors {
+  id integer [pk, increment]
+  building_id integer [not null]
+  user_id integer [not null, note: 'UserID from Identity service (no FK)']
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (building_id, user_id) [unique, name: 'uq_building_supervisors']
+  }
+}
+
+Table stays {
+  id integer [pk, increment]
+  student_id integer [not null, note: 'UserID from Identity service (no FK)']
+  dorm_unit_id integer [not null]
+  start_date date [not null]
+  end_date date [not null]
+  status stay_status [not null, default: 'planned']
+  assigned_by integer [not null, note: 'UserID of Housing Manager']
+  checked_in_by integer [null, note: 'UserID of Maître d\'internat']
+  checked_in_at timestamptz [null]
+  checked_out_by integer [null, note: 'UserID of Maître d\'internat']
+  checked_out_at timestamptz [null]
+  cancelled_by integer [null]
+  cancelled_at timestamptz [null]
+  cancellation_reason text [null]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'CHECK: end_date >= start_date. Unique partial index on (student_id) WHERE status = active — single active stay per student.'
+}
+
+Table cleaning_requests {
+  id integer [pk, increment]
+  dorm_unit_id integer [not null]
+  student_id integer [not null, note: 'Requesting student UserID (no FK)']
+  stay_id integer [not null]
+  scheduled_date date [not null]
+  status cleaning_request_status [not null, default: 'pending']
+  year integer [not null]
+  iso_week integer [not null, note: 'ISO week number (1-53)']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (dorm_unit_id, year, iso_week) [unique, name: 'uq_unit_weekly_cleaning_quota']
+  }
+
+  Note: '1 cleaning request per unit per calendar week (Mon–Sun).'
+}
+
+Table cleaning_shifts {
+  id integer [pk, increment]
+  operator_id integer [not null, note: 'UserID of Housekeeper Operator (no FK)']
+  supervisor_id integer [not null, note: 'UserID of Housekeeper Supervisor (no FK)']
+  campus_id integer [not null]
+  shift_date date [not null]
+  start_time time [not null, default: `08:00:00`]
+  end_time time [not null, default: `17:00:00`]
+  status cleaning_shift_status [not null, default: 'planned']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'CHECK: start_time >= 08:00 AND end_time <= 17:00 AND end_time > start_time.'
+}
+
+Table cleaning_tasks {
+  id integer [pk, increment]
+  shift_id integer [not null]
+  dorm_unit_id integer [not null]
+  cleaning_request_id integer [null, note: 'NULL for common areas']
+  task_order integer [not null, default: 1]
+  status cleaning_task_status [not null, default: 'pending']
+  completed_at timestamptz [null]
+  notes text [null]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+// ---------------------------------------------------------------------------
+// Relationships
+// ---------------------------------------------------------------------------
+
+Ref: residences.campus_id > campuses.id [delete: restrict]
+
+Ref: buildings.residence_id > residences.id [delete: cascade]
+
+Ref: floors.building_id > buildings.id [delete: cascade]
+
+Ref: dorm_units.floor_id > floors.id [delete: cascade]
+
+Ref: building_supervisors.building_id > buildings.id [delete: cascade]
+
+Ref: stays.dorm_unit_id > dorm_units.id [delete: restrict]
+
+Ref: cleaning_requests.dorm_unit_id > dorm_units.id [delete: restrict]
+
+Ref: cleaning_requests.stay_id > stays.id [delete: restrict]
+
+Ref: cleaning_shifts.campus_id > campuses.id [delete: restrict]
+
+Ref: cleaning_tasks.shift_id > cleaning_shifts.id [delete: cascade]
+
+Ref: cleaning_tasks.dorm_unit_id > dorm_units.id [delete: restrict]
+
+Ref: cleaning_tasks.cleaning_request_id > cleaning_requests.id [delete: set null]

@@ -3,7 +3,7 @@ COMPOSE_FILE ?= infra/compose/docker-compose.yml
 SERVICES_DIR ?= services
 SERVICES      = identity housing transport
 svc ?= all
-GEN_SERVICES  = identity
+GEN_SERVICES  = identity housing
 GEN_FILES     = $(foreach s,$(GEN_SERVICES),$(SERVICES_DIR)/$(s)/api/internal/handler/generated.go)
 
 ##@ Secrets

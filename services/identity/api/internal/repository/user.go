@@ -45,10 +45,10 @@ func (r *UserRepository) CreateUserWithOutbox(ctx context.Context, user model.Us
 	defer tx.Rollback(ctx)
 	queryUser := `
 		INSERT INTO users (first_name, last_name, email, phone_number,
-		password_hash, affiliation, role, gender,
+		password_hash, affiliation, role, worker_role, gender,
 		nationality, status, campus_id, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
 		RETURNING id
 	`
 	var userID int64
@@ -62,6 +62,7 @@ func (r *UserRepository) CreateUserWithOutbox(ctx context.Context, user model.Us
 		user.PasswordHash,
 		user.Affiliation,
 		user.Role,
+		user.WorkerRole,
 		user.Gender,
 		user.Nationality,
 		user.Status,
@@ -103,7 +104,7 @@ func (r *UserRepository) CheckEmailOrPhoneExists(ctx context.Context, email, pho
 func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*model.User, error) {
 	email = strings.TrimSpace(email)
 	const query = `
-		SELECT	id, first_name, last_name, email, phone_number, birthday, affiliation, role, gender, password_hash, nationality, status, campus_id, created_at, updated_at
+		SELECT	id, first_name, last_name, email, phone_number, birthday, affiliation, role, worker_role, gender, password_hash, nationality, status, campus_id, created_at, updated_at
 		FROM users
 		WHERE email = $1;
 		`
@@ -117,6 +118,7 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*model.
 		&u.Birthday,
 		&u.Affiliation,
 		&u.Role,
+		&u.WorkerRole,
 		&u.Gender,
 		&u.PasswordHash,
 		&u.Nationality,
@@ -139,7 +141,7 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*model.
 func (r *UserRepository) FindByID(ctx context.Context, id int64) (*model.User, error) {
 	const query = `
 		SELECT id, first_name, last_name, email, phone_number, birthday,
-		       affiliation, role, gender, password_hash, nationality, status,
+		       affiliation, role, worker_role, gender, password_hash, nationality, status,
 		       campus_id, created_at, updated_at
 		FROM users
 		WHERE id = $1;
@@ -154,6 +156,7 @@ func (r *UserRepository) FindByID(ctx context.Context, id int64) (*model.User, e
 		&u.Birthday,
 		&u.Affiliation,
 		&u.Role,
+		&u.WorkerRole,
 		&u.Gender,
 		&u.PasswordHash,
 		&u.Nationality,
@@ -173,7 +176,7 @@ func (r *UserRepository) FindByID(ctx context.Context, id int64) (*model.User, e
 
 func (r *UserRepository) FindMeByID(ctx context.Context, userID int64) (*model.UserMe, error) {
 	const query = `
-		SELECT u.id, COALESCE(u.email::text, ''), u.first_name, u.last_name, u.affiliation, u.role, u.status, c.code, u.created_at
+		SELECT u.id, COALESCE(u.email::text, ''), u.first_name, u.last_name, u.affiliation, u.role, u.worker_role, u.status, c.code, u.created_at
 		FROM users u
 		JOIN  campuses c ON c.id = u.campus_id
 		WHERE u.id = $1;
@@ -186,6 +189,7 @@ func (r *UserRepository) FindMeByID(ctx context.Context, userID int64) (*model.U
 		&me.LastName,
 		&me.Affiliation,
 		&me.Role,
+		&me.WorkerRole,
 		&me.Status,
 		&me.Campus,
 		&me.CreatedAt,

@@ -15,11 +15,12 @@ import (
 )
 
 type Claims struct {
-	UserID    int64     `json:"user_id"`
-	SessionID int64     `json:"sid"`
-	CampusID  int64     `json:"campus_id"`
-	Role      string    `json:"role"`
-	FamilyID  uuid.UUID `json:"family_id,omitempty"`
+	UserID     int64      `json:"user_id"`
+	SessionID  int64      `json:"sid"`
+	CampusID   int64      `json:"campus_id"`
+	Role       string     `json:"role"`
+	WorkerRole WorkerRole `json:"worker_role,omitempty"`
+	FamilyID   uuid.UUID  `json:"family_id,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -29,17 +30,19 @@ func GenerateAccessToken(
 	sessionID int64,
 	campusID int64,
 	role string,
+	workerRole WorkerRole,
 	familyID uuid.UUID,
 	ttl time.Duration,
 	privateKey *rsa.PrivateKey,
 ) (string, error) {
 	now := time.Now().UTC()
 	claims := Claims{
-		UserID:    userID,
-		SessionID: sessionID,
-		CampusID:  campusID,
-		Role:      role,
-		FamilyID:  familyID,
+		UserID:     userID,
+		SessionID:  sessionID,
+		CampusID:   campusID,
+		Role:       role,
+		WorkerRole: workerRole,
+		FamilyID:   familyID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        uuid.NewString(),
 			Subject:   strconv.FormatInt(userID, 10),

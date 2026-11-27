@@ -33,7 +33,7 @@ func main() {
 	sessionID := int64(43)
 	role := "student"
 	accessTTL := 10 * time.Minute
-	accessToken, err := auth.GenerateAccessToken(userID, sessionID, campusID, role, familyID, accessTTL, privateKey)
+	accessToken, err := auth.GenerateAccessToken(userID, sessionID, campusID, role, "", familyID, accessTTL, privateKey)
 	if err != nil {
 		log.Fatalf("Erreur génération JWT : %v", err)
 	}
