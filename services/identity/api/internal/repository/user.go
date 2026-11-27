@@ -21,6 +21,22 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 	return &UserRepository{pool: pool}
 }
 
+// mapUserWriteError converts PostgreSQL constraint/data errors into the
+// sentinels the HTTP layer knows how to map (409 for duplicates, 422 for
+// invalid values). Everything else stays an internal error.
+func mapUserWriteError(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		switch {
+		case pgErr.Code == "23505":
+			return model.ErrUserAlreadyExists
+		case pgErr.Code == "23514" || strings.HasPrefix(pgErr.Code, "22"):
+			return model.ErrInvalidInput
+		}
+	}
+	return err
+}
+
 func (r *UserRepository) CreateUserWithOutbox(ctx context.Context, user model.User, eventPayload []byte) (int64, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -50,13 +66,9 @@ func (r *UserRepository) CreateUserWithOutbox(ctx context.Context, user model.Us
 		user.Nationality,
 		user.Status,
 		user.CampusID,
-		).Scan(&userID)
+	).Scan(&userID)
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505"{
-			return 0, err
-		}
-		return 0, err
+		return 0, mapUserWriteError(err)
 	}
 	queryOutbox := `
 		INSERT INTO outbox_events (aggregate_id, event_type, payload, status)
@@ -73,7 +85,7 @@ func (r *UserRepository) CreateUserWithOutbox(ctx context.Context, user model.Us
 }
 
 func (r *UserRepository) CheckEmailOrPhoneExists(ctx context.Context, email, phone_number *string) (bool, error) {
-	query :=`
+	query := `
 		SELECT EXISTS (
 		SELECT 1 FROM users
 		WHERE ($1::citext IS NOT NULL AND email = $1::citext)
@@ -201,24 +213,33 @@ func (r *UserRepository) FindCampusIDByCode(ctx context.Context, code model.Camp
 	return id, nil
 }
 
-// UpdateMe updates first_name, last_name and gender for the given user and
-// returns the refreshed public profile.
-func (r *UserRepository) UpdateMe(ctx context.Context, userID int64, firstName, lastName string, gender *string) (*model.UserMe, error) {
+// UpdateMe applies the provided (non-nil) fields only. COALESCE keeps the
+// current value when the caller omitted a field, so a partial PUT cannot
+// accidentally erase the user's gender or contact information.
+func (r *UserRepository) UpdateMe(ctx context.Context, userID int64, input model.UpdateMeInput) (*model.UserMe, error) {
 	const query = `
 		UPDATE users
-		   SET first_name = $2,
-		       last_name  = $3,
-		       gender     = $4,
-		       updated_at = now()
+		   SET first_name   = COALESCE($2, first_name),
+		       last_name    = COALESCE($3, last_name),
+		       gender       = COALESCE($4::gender, gender),
+		       email        = COALESCE($5::citext, email),
+		       phone_number = COALESCE($6, phone_number),
+		       updated_at   = now()
 		 WHERE id = $1;
 	`
-	cmdTag, err := r.pool.Exec(ctx, query, userID, firstName, lastName, gender)
+	cmdTag, err := r.pool.Exec(ctx, query,
+		userID,
+		input.FirstName,
+		input.LastName,
+		input.Gender,
+		input.Email,
+		input.Phone,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("user repo update me: %w", err)
+		return nil, fmt.Errorf("user repo update me: %w", mapUserWriteError(err))
 	}
 	if cmdTag.RowsAffected() == 0 {
 		return nil, model.ErrUserNotFound
 	}
 	return r.FindMeByID(ctx, userID)
 }
-

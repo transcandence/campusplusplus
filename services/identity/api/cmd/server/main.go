@@ -81,6 +81,7 @@ func run() error {
 		privateKey,
 		cfg.JWTAccessTTL,
 		cfg.JWTRefreshTTL,
+		cfg.MaxActiveSessions,
 	)
 	authHandler := handler.NewAuthHandler(authService, publicKey)
 	if cfg.Env == "prod" {

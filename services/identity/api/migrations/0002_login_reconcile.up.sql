@@ -1,9 +1,9 @@
 -- 0002_login_reconcile.up.sql
 --
--- This is the second and final migration for the login slice. It takes the
--- 0001 schema (which was written before we knew what login needed) and
--- reshapes it to what the auth code actually uses. After this runs, the
--- schema is final: no 0003.
+-- This is the second migration for the login slice. It takes the 0001
+-- schema (which was written before we knew what login needed) and reshapes
+-- it to what the auth code actually uses. Later migrations:
+-- 0003_register_fix and 0004_activate_registered_users.
 --
 -- What it does, in order:
 --   1. Turns the old VARCHAR+CHECK columns into native Postgres enums.
@@ -23,12 +23,12 @@
 -- switch to a runner that doesn't, wrap this file in BEGIN; ... COMMIT; —
 -- never both.
 --
--- WARNING — this migration TRUNCATEs the sessions table. Every session that
--- exists before this runs is deleted. That's on purpose: the old column
--- held plaintext tokens, which cannot be turned into SHA-256 hashes, and
--- which may not be hex at all. There is no safe conversion. In dev, the
--- table is empty, so nothing happens. In any shared environment, this logs
--- everyone out once. Plan accordingly.
+-- IMPORTANT — this migration does NOT truncate sessions. Existing rows are
+-- preserved by hashing the old plaintext token with sha256(convert_to(...)).
+-- This assumes the old sessions.token column held the raw opaque refresh
+-- token, which is what the previous login code stored. If a deployment used
+-- a different representation, those rows simply will not authenticate and
+-- can be revoked or left to expire naturally; no other data is destroyed.
 
 -- ---------------------------------------------------------------------------
 -- 1. Create the enum types.
@@ -156,8 +156,12 @@ ON CONFLICT (code) DO NOTHING;
 -- an explicit, considered operation, not a cascade that silently orphans
 -- or deletes users.
 
+-- Add the column as nullable first, backfill it, then enforce NOT NULL.
+-- PostgreSQL rejects ADD COLUMN ... NOT NULL without a default when the
+-- table already contains rows, so the backfill must happen before the
+-- constraint is applied.
 ALTER TABLE users
-    ADD COLUMN campus_id INTEGER NOT NULL
+    ADD COLUMN campus_id INTEGER
         REFERENCES campuses(id) ON DELETE RESTRICT;
 
 -- Existing users (if any) get 'rabat'. If your real users belong
@@ -168,6 +172,8 @@ ALTER TABLE users
 UPDATE users
    SET campus_id = (SELECT id FROM campuses WHERE code = 'rabat')
  WHERE campus_id IS NULL;
+
+ALTER TABLE users ALTER COLUMN campus_id SET NOT NULL;
 
 CREATE INDEX idx_users_campus_id ON users (campus_id);
 
@@ -234,15 +240,17 @@ ALTER TABLE sessions
 -- 7. Sessions: replace plaintext token with a SHA-256 hash, add lifecycle.
 -- ---------------------------------------------------------------------------
 --
--- WHY THE TRUNCATE:
+-- WHY NO TRUNCATE:
 --   The old `sessions.token` column held the raw refresh token (a string).
---   We now want to store only SHA-256(token), as raw bytes (BYTEA, 32 bytes).
---   You cannot convert a plaintext token to its hash in SQL in a way that
---   works for any input (the old values might be JWTs, base64url, UUIDs, or
---   already-hex — there is no single decode). The only safe options are
---   (a) drop the data, or (b) re-hash every row using pgcrypto and hope the
---   values were raw tokens. (a) is correct. The table is empty in dev; in
---   shared environments, this logs everyone out once.
+--   We now store SHA-256(token) as raw bytes (BYTEA, 32 bytes). PostgreSQL 17
+--   provides sha256(bytea) natively, so the migration can hash existing rows
+--   in place and keep sessions alive instead of logging everyone out.
+--
+--   The previous migration truncated the table because it assumed the old
+--   values might not be raw tokens. We now make that assumption explicit:
+--   old sessions.token values are the opaque tokens issued by login. Rows
+--   that do not match anymore will simply fail refresh verification and
+--   can be revoked/expired without touching the rest of the table.
 --
 -- WHY BYTEA AND NOT TEXT:
 --   Storing the hash as BYTEA (raw 32 bytes) is smaller and removes any
@@ -255,10 +263,14 @@ ALTER TABLE sessions
 --   is correct for high-entropy inputs. Password hashing (which DOES need
 --   to be slow) is a separate concern and lives in the app's password code.
 
-TRUNCATE sessions;
+ALTER TABLE sessions ADD COLUMN token_hash BYTEA;
+
+UPDATE sessions
+   SET token_hash = sha256(convert_to(token, 'UTF8'));
+
+ALTER TABLE sessions ALTER COLUMN token_hash SET NOT NULL;
 
 ALTER TABLE sessions DROP COLUMN token;
-ALTER TABLE sessions ADD COLUMN token_hash BYTEA NOT NULL;
 ALTER TABLE sessions
     ADD CONSTRAINT sessions_token_hash_uniq UNIQUE (token_hash);
 

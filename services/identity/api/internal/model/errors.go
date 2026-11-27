@@ -13,12 +13,14 @@ var (
 	ErrAccountSuspended   = errors.New("account is suspended")
 	ErrAccountPending     = errors.New("account email pending verification")
 	ErrUserAlreadyExists  = errors.New("user already exists")
-	ErrInvalidRole		  = errors.New("invalid role")
+	ErrInvalidRole        = errors.New("invalid role")
+	ErrEmailRequired      = errors.New("email is required")
+	ErrInvalidInput       = errors.New("invalid input")
 )
 
 const (
 	MsgInvalidBody        = "Invalid request body"
-	MsgInvalidRole		  =	"Role must be 'student' or 'guest'"
+	MsgInvalidRole        = "Role must be 'student' or 'guest'"
 	MsgEmailPasswordReq   = "Email and password are required"
 	MsgInvalidCredentials = "Invalid email or password"
 	MsgAccountSuspended   = "This account is suspended. Contact the administration."
@@ -53,9 +55,9 @@ type FieldError struct {
 }
 
 const (
-	ErrCodeUserAlreadyExists = "user_already_exists"
+	ErrCodeUserAlreadyExists  = "user_already_exists"
 	ErrCodeInvalidCredentials = "invalid_credentials"
-	ErrCodeInavlidRole		  = "invalid role"
+	ErrCodeInvalidRole        = "invalid_role"
 	ErrCodeInvalidRefresh     = "invalid_refresh"
 	ErrCodeAccountSuspended   = "account_suspended"
 	ErrCodeAccountPending     = "account_pending_verification"
@@ -63,6 +65,7 @@ const (
 	ErrCodeRateLimited        = "rate_limited"
 	ErrCodeUnauthorized       = "unauthorized"
 	ErrCodeUserNotFound       = "user_not_found"
+	ErrCodeSessionNotFound    = "session_not_found"
 	ErrCodeInternalError      = "internal_error"
 )
 
