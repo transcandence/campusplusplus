@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "tokens:generate": "node scripts/generate-tokens.mjs"
   },
   "dependencies": {
     "@platform/api-client": "workspace:*",

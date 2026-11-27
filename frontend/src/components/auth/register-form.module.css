@@ -1,0 +1,410 @@
+.form {
+  width: 80%;
+}
+
+.heading {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.title {
+  color: var(--color-text-primary);
+  font-size: 1.875rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.subtitle {
+  margin-top: 0.5rem;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.fields {
+  display: flex;
+  min-width: 0;
+  flex-direction: row-reverse;
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.label {
+  display: block;
+  margin-bottom: 0.375rem;
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.helper {
+  margin-top: 0.5rem;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+}
+
+/* Input fields */
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 3rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--color-border-default);
+  border-radius: 0.75rem;
+  background: var(--color-background-elevated);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+}
+
+.field:focus-within {
+  border-color: var(--color-focus-ring);
+  box-shadow: 0 0 0 3px var(--color-focus-glow);
+}
+
+.field:has(:disabled) {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.fieldIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  color: var(--color-text-disabled);
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.875rem;
+}
+
+.input::placeholder {
+  color: var(--color-text-disabled);
+}
+
+.input:focus {
+  outline: none;
+}
+
+/* Password visibility */
+
+.passwordToggle {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.passwordToggle:hover {
+  color: var(--color-text-primary);
+}
+
+.passwordToggle:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.passwordToggleIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Password requirements */
+
+.passwordRules {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-top: 0.75rem;
+}
+
+.passwordRule {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.ruleIcon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.ruleValid {
+  color: var(--color-status-success-text);
+}
+
+.ruleInvalid {
+  color: var(--color-text-secondary);
+}
+
+.passwordFeedback {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.feedbackValid {
+  color: var(--color-status-success-text);
+}
+
+.feedbackInvalid {
+  color: var(--color-status-error-text);
+}
+
+/* Custom dropdown */
+
+.selectWrapper {
+  position: relative;
+  width: 100%;
+}
+
+.selectButton {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 3rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--color-border-default);
+  border-radius: 0.75rem;
+  background: var(--color-background-elevated);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.selectButton:focus-visible {
+  outline: none;
+  border-color: var(--color-focus-ring);
+  box-shadow: 0 0 0 3px var(--color-focus-glow);
+}
+
+.selectText {
+  flex: 1;
+  overflow: hidden;
+  font-size: 0.875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectTextSelected {
+  color: var(--color-text-primary);
+}
+
+.selectTextPlaceholder {
+  color: var(--color-text-disabled);
+}
+
+.chevron {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  transition: transform 150ms ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.optionsList {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  left: 0;
+  max-height: 15rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.375rem;
+  border: 1px solid var(--color-border-default);
+  border-radius: 0.75rem;
+  background: var(--color-background-elevated);
+  box-shadow: 0 10px 25px rgb(15 23 42 / 12%);
+  list-style: none;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.optionActive {
+  background: var(--color-background-surface);
+}
+
+.optionSelected {
+  background: var(--color-action-primary-background);
+  color: var(--color-action-primary-text);
+}
+
+.optionCheck {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+/* Feedback messages */
+
+.errorMessage,
+.successMessage {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.errorMessage {
+  background: var(--color-status-error-background);
+  color: var(--color-status-error-text);
+}
+
+.successMessage {
+  background: var(--color-status-success-background);
+  color: var(--color-status-success-text);
+}
+
+.messageIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* Submit button */
+
+.submitButton {
+  display: flex;
+  width: 100%;
+  min-height: 3.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  border: 0;
+  border-radius: 1rem;
+  background: var(--color-action-primary-background);
+  color: var(--color-action-primary-text);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgb(31 18 53 / 12%);
+  transition:
+    background-color 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.submitButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  background: var(--color-action-primary-background-hover);
+  box-shadow: 0 8px 20px rgb(31 18 53 / 16%);
+}
+
+.submitButton:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.submitButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.submitArrow {
+  width: 1.25rem;
+  height: 1.25rem;
+  transition: transform 150ms ease;
+}
+
+.submitButton:hover:not(:disabled) .submitArrow {
+  transform: translateX(4px);
+}
+
+.spinner {
+  width: 1.25rem;
+  height: 1.25rem;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Login link */
+
+.loginPrompt {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.loginLink {
+  margin-left: 0.25rem;
+  color: var(--color-text-link);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.loginLink:hover {
+  text-decoration: underline;
+}
+
+/* Reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .field,
+  .selectButton,
+  .passwordToggle,
+  .option,
+  .submitButton,
+  .submitArrow {
+    transition: none;
+  }
+
+  .spinner {
+    animation-duration: 2s;
+  }
+}
