@@ -1,7 +1,10 @@
 // Housing Service — campus_housing
-// Derived from services/housing/api/migrations/0001_init.up.sql
-// (campus_housing is not yet provisioned in the running container — no housing
-// service in docker-compose.yml, so its migrations have never run.)
+// Derived from services/housing/api/migrations/ (0001_init … 0004_housing_constraints).
+// campus_housing is provisioned by infra/compose/initdb/01-databases.sql and
+// migrated by the housing-migrate service in infra/compose/docker-compose.yml.
+// Verify against the live schema with:
+//   docker compose -f infra/compose/docker-compose.yml exec postgres \
+//     psql -U campus -d campus_housing -c '\d <table>'
 
 Project campus_housing {
   database_type: 'PostgreSQL'
@@ -109,7 +112,7 @@ Table dorm_units {
   id integer [pk, increment]
   floor_id integer [not null]
   unit_number varchar(30) [not null, note: 'e.g. "1", "14", "CORR", "KITCH", "LAUND"']
-  code varchar(60) [not null, unique, note: 'Canonical full code e.g. "12A2-1", "12A2-CORR"']
+  code varchar(60) [not null, note: 'Derived: [Residence][Building][Floor]-[Unit], e.g. "12A2-1", "12A2-CORR". Unique per campus only; recomputed by trg_dorm_units_set_code on write.']
   unit_type dorm_unit_type [not null]
   capacity integer [not null, default: 1]
   created_at timestamptz [not null, default: `now()`]
@@ -119,7 +122,7 @@ Table dorm_units {
     (floor_id, unit_number) [unique, name: 'uq_dorm_units_floor_unit_number']
   }
 
-  Note: 'Capacity invariants: corridor/kitchen/laundry = 0; room = 1; apart >= 1.'
+  Note: 'Capacity invariants: corridor/kitchen/laundry = 0; room = 1; apart >= 1. code is derived by trg_dorm_units_set_code from residence.code + building.code + floors.floor_number + unit_number on INSERT and on UPDATE of floor_id/unit_number/code, and resynced when a parent is renamed. code is NOT globally unique: the campus is the tenancy boundary, so 12A2-1 legally exists in more than one campus; within a campus, uniqueness follows from uq_dorm_units_floor_unit_number plus the unique parent codes.'
 }
 
 Table building_supervisors {
@@ -151,7 +154,7 @@ Table stays {
   created_at timestamptz [not null, default: `now()`]
   updated_at timestamptz [not null, default: `now()`]
 
-  Note: 'CHECK: end_date >= start_date. Unique partial index on (student_id) WHERE status = active — single active stay per student.'
+  Note: 'CHECK: end_date >= start_date. Unique partial index on (student_id) WHERE status = active — single active stay per student. trg_stays_living_unit_only rejects any INSERT or UPDATE of dorm_unit_id targeting a common area (corridor, kitchen, laundry) with a check_violation, so a stay may only reference a room or an apartment.'
 }
 
 Table cleaning_requests {
@@ -167,10 +170,10 @@ Table cleaning_requests {
   updated_at timestamptz [not null, default: `now()`]
 
   indexes {
-    (dorm_unit_id, year, iso_week) [unique, name: 'uq_unit_weekly_cleaning_quota']
+    (dorm_unit_id, year, iso_week) [unique, name: 'uq_unit_weekly_cleaning_quota', note: 'Partial: WHERE status <> cancelled']
   }
 
-  Note: '1 cleaning request per unit per calendar week (Mon–Sun).'
+  Note: 'Max 1 live cleaning request per unit per calendar week (Mon–Sun). The quota index is partial (cancelled rows excluded), so cancelling a request releases the unit slot for that ISO week; a plain UNIQUE burned the week permanently.'
 }
 
 Table cleaning_shifts {
