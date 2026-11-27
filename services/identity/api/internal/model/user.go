@@ -38,22 +38,33 @@ const (
 )
 
 type RegisterInput struct {
-    FullName string
-    Email    *string
-    Phone    *string
-    Password *string
-    UserType string
-    Gender   *string
-	CampusID int64
+	FullName    string
+	Email       *string
+	Phone       *string
+	Password    *string
+	UserType    string
+	Gender      *string
+	CampusID    int64
 	Affiliation Affiliation
+}
+
+// UpdateMeInput carries the optional fields accepted by PUT /me.
+// Nil means "leave the current value unchanged".
+type UpdateMeInput struct {
+	FullName  *string
+	FirstName *string
+	LastName  *string
+	Gender    *string
+	Email     *string
+	Phone     *string
 }
 
 type User struct {
 	ID           int64       `db:"id"`
 	FirstName    string      `db:"first_name"`
 	LastName     string      `db:"last_name"`
-	Email        *string      `db:"email"`
-	PhoneNumber  *string      `db:"phone_number"`
+	Email        *string     `db:"email"`
+	PhoneNumber  *string     `db:"phone_number"`
 	Birthday     *time.Time  `db:"birthday"`
 	Affiliation  Affiliation       `db:"affiliation"`
 	Role         Role              `db:"role"`
@@ -81,11 +92,11 @@ type UserMe struct {
 }
 
 func IsSelfRegisterRole(r Role) bool {
-    switch r {
-    case RoleStudent, RoleGuest:
-        return true
-    }
-    return false
+	switch r {
+	case RoleStudent, RoleGuest:
+		return true
+	}
+	return false
 }
 
 // WorkerRoleOrZero returns the user's worker role, or the zero value ("") for

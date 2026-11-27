@@ -19,7 +19,8 @@ COPY services/identity/api/ ./services/identity/api/
 WORKDIR /src/services/identity/api
 RUN go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server/ \
   && go build -trimpath -ldflags="-s -w" -o /out/migrate ./cmd/migrate \
-  && go build -trimpath -ldflags="-s -w" -o /out/seed ./cmd/seed
+  && go build -trimpath -ldflags="-s -w" -o /out/seed ./cmd/seed \
+  && go build -trimpath -ldflags="-s -w" -o /out/worker ./cmd/worker
 
 # Stage 2: Minimal runtime image
 FROM alpine:3.22 AS runtime

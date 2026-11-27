@@ -18,6 +18,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/transcandence/campusplusplus/services/identity/api/internal/config"
+	"github.com/transcandence/campusplusplus/services/identity/api/internal/repository"
 )
 
 func main() {
@@ -53,10 +54,18 @@ func run() error {
 	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	logger.Info("outbox worker started", "poll_interval", "2s", "batch_size", 10)
+	logger.Info("outbox worker started",
+		"poll_interval", "2s",
+		"batch_size", 10,
+		"session_retention", cfg.SessionRetention.String(),
+		"session_cleanup_interval", cfg.SessionCleanupInterval.String(),
+	)
 
+	sessionRepo := repository.NewSessionRepository(pool)
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
+	cleanupTicker := time.NewTicker(cfg.SessionCleanupInterval)
+	defer cleanupTicker.Stop()
 
 	for {
 		select {
@@ -67,8 +76,36 @@ func run() error {
 			if err := processBatch(ctx, pool, logger); err != nil {
 				logger.Error("outbox batch error", "error", err)
 			}
+		case <-cleanupTicker.C:
+			if err := cleanupSessions(ctx, sessionRepo, cfg.SessionRetention, logger); err != nil {
+				logger.Error("session cleanup error", "error", err)
+			}
 		}
 	}
+}
+
+// cleanupSessions deletes expired/revoked sessions older than retention in
+// batches so a single tick never holds a huge lock or transaction.
+func cleanupSessions(ctx context.Context, repo *repository.SessionRepository, retention time.Duration, logger *slog.Logger) error {
+	const batchSize = 1000
+	cutoff := time.Now().UTC().Add(-retention)
+
+	var total int64
+	for {
+		deleted, err := repo.DeleteStale(ctx, cutoff, batchSize)
+		if err != nil {
+			return fmt.Errorf("deleting stale sessions: %w", err)
+		}
+		total += deleted
+		if deleted < batchSize {
+			break
+		}
+	}
+
+	if total > 0 {
+		logger.Info("sessions cleaned", "count", total, "cutoff", cutoff)
+	}
+	return nil
 }
 
 type outboxEvent struct {

@@ -61,8 +61,13 @@ paths:
       operationId: register
       summary: Register a new user account
       description: |
-        Creates a new user account. Requires a full name, password, user type,
-        and at least one contact method (email or phone).
+        Creates a new user account. Requires a full name, a valid email,
+        a password, and a user type.
+
+        The account is **active immediately**: there is no email-verification
+        step in the current implementation, so the user can log in as soon as
+        registration succeeds. The phone number is optional profile data and
+        cannot be used as a login identifier.
       security: []
       requestBody:
         required: true
@@ -375,6 +380,67 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /sessions:
+    get:
+      tags: [Sessions]
+      operationId: listSessions
+      summary: List active sessions
+      description: |
+        Returns the active sessions of the authenticated user. The current
+        session is marked with `current: true`. Token hashes and rotation
+        metadata are never exposed.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Active sessions, newest first.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SessionSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /sessions/{sessionId}:
+    delete:
+      tags: [Sessions]
+      operationId: revokeSession
+      summary: Revoke one session
+      description: |
+        Revokes one active session belonging to the authenticated user.
+        Returns `404` when the session does not exist, is already revoked,
+        or belongs to another user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Session revoked.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -527,6 +593,25 @@ components:
                 detail: An account with this email or phone number already exists.
                 requestId: 0192f5b1-2c3d-7e4f-9a0b-1c2d3e4f5a6b
 
+    NotFound:
+      description: The requested resource does not exist or is not owned by the caller.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            sessionNotFound:
+              value:
+                type: https://api.campus.ma/errors/not-found
+                title: Not Found
+                status: 404
+                code: session_not_found
+                detail: Session not found.
+                requestId: 0192f5b1-2c3d-7e4f-9a0b-1c2d3e4f5a6b
+
   schemas:
     LoginRequest:
       type: object
@@ -545,10 +630,7 @@ components:
           maxLength: 128
     RegisterRequest:
       type: object
-      required: [fullName, password, userType]
-      anyOf:
-        - required: [email]
-        - required: [phone]
+      required: [fullName, email, password, userType]
       additionalProperties: false
       properties:
         fullName:
@@ -562,9 +644,11 @@ components:
           type: string
           format: email
           maxLength: 254
+          description: Login identifier. Required; the account is active immediately.
         phone:
           type: string
-          maxLength: 30
+          maxLength: 20
+          description: Optional profile data; not a login identifier.
         password:
           type: string
           format: password
@@ -596,7 +680,7 @@ components:
           maxLength: 254
         phone:
           type: string
-          maxLength: 30
+          maxLength: 20
 
     RefreshRequest:
       type: object
@@ -685,6 +769,31 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    SessionSummary:
+      type: object
+      required: [id, createdAt, expiresAt, current]
+      properties:
+        id:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+        ipAddress:
+          type: string
+        userAgent:
+          type: string
+          nullable: true
+        current:
+          type: boolean
 
     Problem:
       type: object
