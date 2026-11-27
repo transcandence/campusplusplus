@@ -1,0 +1,403 @@
+openapi: 3.0.3
+
+info:
+  title: Campus Housing — Cleaning Partner API
+  version: 0.1.0
+  description: |
+    Public, API-key-secured endpoints for the outsourced **cleaning company**.
+
+    Unlike the internal housing API (JWT), this surface is for an external
+    partner. It exposes only the partner's own work: their shifts and their
+    operator roster. Students, stays, and the spatial inventory are never
+    exposed here.
+
+    ## Conventions
+    - All bodies are JSON (`application/json`).
+    - All errors use **RFC 9457 Problem Details** (`application/problem+json`).
+    - Every response carries an `X-Request-Id` header.
+
+    ## Authentication
+    Every request must carry a partner API key in the `X-API-Key` header.
+    The key is tenant-scoped: it resolves to exactly one cleaning company,
+    and every list is implicitly filtered to that company's own data
+    (shifts and operators). A missing or invalid key returns `401`.
+
+    ## Rate limiting
+    Requests are rate-limited per key (e.g. 60 req/min). Exceeding the limit
+    returns `429` with a `Retry-After` header.
+  license:
+    name: Proprietary
+    url: https://campus.ma/terms
+
+servers:
+  - url: https://api.campus.ma
+    description: Production (placeholder — public API host to be decided)
+
+tags:
+  - name: Shifts
+    description: The cleaning company's daily work plan.
+  - name: Operators
+    description: The cleaning company's own roster.
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /api/v1/shifts:
+    get:
+      tags: [Shifts]
+      operationId: listShifts
+      summary: List the company's shifts
+      description: |
+        Returns the partner's cleaning shifts, filtered by date and/or
+        operator. Defaults to today when no `date` is given.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Shift date (defaults to today).
+        - name: operatorId
+          in: query
+          schema:
+            type: integer
+            format: int64
+          description: Filter to one operator.
+      responses:
+        '200':
+          description: The partner's shifts.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CleaningShift'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/v1/operators:
+    get:
+      tags: [Operators]
+      operationId: listOperators
+      summary: List the company's operators
+      description: Returns the partner's own operators.
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: The partner's operators.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Operator'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      tags: [Operators]
+      operationId: onboardOperator
+      summary: Onboard an operator
+      description: |
+        Registers a new operator for the partner. The operator is created as
+        a `worker` with `worker_role: housekeeper_operator` in the Identity
+        service, then linked to the given residence.
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OperatorInput'
+      responses:
+        '201':
+          description: Operator onboarded.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operator'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/v1/operators/{operatorId}:
+    put:
+      tags: [Operators]
+      operationId: updateOperator
+      summary: Update operator details
+      description: |
+        Replaces the operator's details. The operator must belong to the
+        partner's own company; otherwise `404`.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: operatorId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OperatorInput'
+      responses:
+        '200':
+          description: Operator updated.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operator'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      tags: [Operators]
+      operationId: offboardOperator
+      summary: Offboard an operator
+      description: |
+        Removes an operator from the partner's roster. Idempotent: deleting
+        an unknown or already-offboarded operator returns `204`.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: operatorId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Operator offboarded.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        Static partner API key. Tenant-scoped: one key resolves to exactly one
+        cleaning company, and all lists are filtered to that company's data.
+
+  headers:
+    RequestId:
+      description: Unique id of this request, for tracing and support.
+      schema:
+        type: string
+        format: uuid
+    RetryAfter:
+      description: Seconds to wait before retrying.
+      schema:
+        type: integer
+        minimum: 1
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+        WWW-Authenticate:
+          description: Authentication scheme expected.
+          schema:
+            type: string
+            example: 'ApiKey realm="campus-partner"'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: The resource does not exist, or is not visible to this partner.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: The request violates a uniqueness invariant.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    ValidationError:
+      description: Well-formed JSON that violates a business or format rule.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ValidationProblem'
+    TooManyRequests:
+      description: Rate limit exceeded. Wait `Retry-After` seconds.
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        code:
+          type: string
+        requestId:
+          type: string
+          format: uuid
+
+    ValidationProblem:
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          required: [errors]
+          properties:
+            errors:
+              type: array
+              items:
+                type: object
+                required: [field, code]
+                properties:
+                  field:
+                    type: string
+                  code:
+                    type: string
+                  message:
+                    type: string
+
+    ShiftStatus:
+      type: string
+      enum: [planned, in_progress, completed]
+
+    OperatorStatus:
+      type: string
+      enum: [active, inactive]
+
+    CleaningShift:
+      type: object
+      required: [id, operatorId, shiftDate, startTime, endTime, status, residenceId]
+      properties:
+        id:
+          type: integer
+          format: int64
+        operatorId:
+          type: integer
+          format: int64
+        shiftDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+          example: '08:00:00'
+        endTime:
+          type: string
+          example: '17:00:00'
+        status:
+          $ref: '#/components/schemas/ShiftStatus'
+        residenceId:
+          type: integer
+          format: int64
+        campusId:
+          type: integer
+          format: int64
+
+    Operator:
+      type: object
+      required: [id, firstName, lastName, email, residenceId, status]
+      properties:
+        id:
+          type: integer
+          format: int64
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        residenceId:
+          type: integer
+          format: int64
+        status:
+          $ref: '#/components/schemas/OperatorStatus'
+
+    OperatorInput:
+      type: object
+      required: [firstName, lastName, email, residenceId]
+      additionalProperties: false
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        residenceId:
+          type: integer
+          format: int64

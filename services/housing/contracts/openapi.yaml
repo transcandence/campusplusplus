@@ -1,0 +1,1070 @@
+openapi: 3.0.3
+
+info:
+  title: Campus Housing API
+  version: 0.1.0
+  description: |
+    Occupancy and cleaning operations for the campus platform.
+
+    This is the **minimum viable slice**: assign and track student stays
+    (occupancy), let students book unit cleanings, and let housekeepers
+    execute cleaning shifts and tasks. Inventory (residences, dorm units) is
+    read-only here; it is bootstrapped by a seed, not created through this
+    API yet.
+
+    ## Conventions
+    - All bodies are JSON (`application/json`) unless stated otherwise.
+    - All errors use **RFC 9457 Problem Details** (`application/problem+json`).
+    - Every response carries an `X-Request-Id` header; quote it in bug reports.
+    - Access tokens are JWTs sent as `Authorization: Bearer <token>`.
+    - Resource identifiers are integers (`int64`); user identifiers (`studentId`,
+      `operatorId`, …) are Identity service user ids, not duplicated here.
+
+    ## Roles
+    The bearer token carries `role` and, for workers, `worker_role`. Endpoints
+    are authorized by these claims:
+
+    | Claim value | Meaning |
+    |---|---|
+    | `role: student` | Occupant — views own stay, books cleaning |
+    | `worker_role: housing_manager` | Plans stays, checks students in/out, manages assignments |
+    | `worker_role: housekeeper_supervisor` | Monitors shifts, resolves exceptions |
+    | `worker_role: housekeeper_operator` | Executes cleaning tasks |
+  license:
+    name: Proprietary
+    url: https://campus.ma/terms
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development (through the API gateway)
+
+tags:
+  - name: Stays
+    description: Student occupancy (assign, check-in, check-out, cancel).
+  - name: Cleaning
+    description: Student requests and housekeeper execution.
+  - name: Inventory
+    description: Residences and dorm units (read-only).
+  - name: Assignments
+    description: Operator-to-residence mapping.
+
+security:
+  - bearerAuth: []
+
+paths:
+  /housing/stays:
+    get:
+      tags: [Stays]
+      operationId: listStays
+      summary: List stays
+      description: |
+        Lists stays with optional filters. Managers and supervisors use this
+        as the occupancy board; `?status=planned` is the check-in queue.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/StayStatus'
+        - name: studentId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: dormUnitId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: campusId
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: List of stays matching the filters.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Stay'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Stays]
+      operationId: createStay
+      summary: Assign a student to a unit
+      description: |
+        Creates a `planned` stay. Enforces: the target unit is a living unit
+        (room/apart), active occupants are below capacity, the student's
+        gender matches the residence's gender policy, and the student has no
+        other `active` stay.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStayRequest'
+      responses:
+        '201':
+          description: Stay created (status `planned`).
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stay'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /housing/stays/{stayId}:
+    get:
+      tags: [Stays]
+      operationId: getStay
+      summary: Get one stay
+      description: |
+        Returns one stay. A student may only read their own stay; managers
+        and supervisors may read any.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: stayId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: The stay.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stay'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /housing/stays/{stayId}/check-in:
+    post:
+      tags: [Stays]
+      operationId: checkInStay
+      summary: Check a student in
+      description: |
+        Transitions a stay `planned → active` (the student physically arrived).
+        Stamps `checkedInBy` + `checkedInAt`. Re-checks unit capacity and the
+        single-active-stay invariant. Performed by a housing manager.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: stayId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Stay is now `active`.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stay'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /housing/stays/{stayId}/check-out:
+    post:
+      tags: [Stays]
+      operationId: checkOutStay
+      summary: Check a student out
+      description: |
+        Transitions a stay `active → ended` (physical departure). Stamps
+        `checkedOutBy` + `checkedOutAt`. A stay does **not** auto-end when
+        `endDate` passes — it stays `active` until this is called. Performed
+        by a housing manager.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: stayId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Stay is now `ended`.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stay'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /housing/stays/{stayId}/cancel:
+    post:
+      tags: [Stays]
+      operationId: cancelStay
+      summary: Cancel a planned stay
+      description: |
+        Transitions a stay `planned → cancelled` (only before check-in). Stamps
+        `cancelledBy`, `cancelledAt`, and a reason.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: stayId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelStayRequest'
+      responses:
+        '200':
+          description: Stay is now `cancelled`.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stay'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /housing/me/stay:
+    get:
+      tags: [Stays]
+      operationId: getMyStay
+      summary: Get the caller's current stay
+      description: |
+        Returns the authenticated student's current `active` stay, or `404`
+        if they have none.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The caller's active stay.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stay'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /housing/cleaning-requests:
+    post:
+      tags: [Cleaning]
+      operationId: createCleaningRequest
+      summary: Book a next-day cleaning
+      description: |
+        Books a cleaning of the caller's assigned unit. Enforces: the caller
+        has an `active` stay, `scheduledDate` is strictly **tomorrow**, and at
+        most **one request per unit per week** (tracked via `year` + `isoWeek`).
+        `dormUnitId` is derived from the caller's active stay.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCleaningRequestRequest'
+      responses:
+        '201':
+          description: Cleaning request created (status `pending`).
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CleaningRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /housing/me/cleaning-requests:
+    get:
+      tags: [Cleaning]
+      operationId: listMyCleaningRequests
+      summary: List the caller's cleaning requests
+      description: Returns the authenticated student's own cleaning requests.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The caller's cleaning requests.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CleaningRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /housing/me/shifts:
+    get:
+      tags: [Cleaning]
+      operationId: listMyShifts
+      summary: List the caller's cleaning shifts
+      description: |
+        Returns the authenticated operator's shifts, optionally filtered by
+        `date` (defaults to today).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: The operator's shifts.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CleaningShift'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /housing/cleaning-tasks:
+    get:
+      tags: [Cleaning]
+      operationId: listCleaningTasks
+      summary: List cleaning tasks
+      description: |
+        Lists cleaning tasks, typically filtered by `shiftId` for an
+        operator's to-do list, or by `status` for a supervisor's monitor.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: shiftId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/CleaningTaskStatus'
+        - name: dormUnitId
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: List of cleaning tasks.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CleaningTask'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /housing/cleaning-tasks/{taskId}/start:
+    post:
+      tags: [Cleaning]
+      operationId: startCleaningTask
+      summary: Start a cleaning task
+      description: Transitions a task `pending → in_progress`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Task is now `in_progress`.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CleaningTask'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /housing/cleaning-tasks/{taskId}/complete:
+    post:
+      tags: [Cleaning]
+      operationId: completeCleaningTask
+      summary: Complete a cleaning task
+      description: |
+        Transitions a task `in_progress → done` and stamps `completedAt`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Task is now `done`.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CleaningTask'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /housing/residences:
+    get:
+      tags: [Inventory]
+      operationId: listResidences
+      summary: List residences
+      description: Lists residences, optionally filtered by campus.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: campusId
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: List of residences.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Residence'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /housing/dorm-units:
+    get:
+      tags: [Inventory]
+      operationId: listDormUnits
+      summary: List dorm units
+      description: |
+        Lists dorm units, optionally filtered by residence, floor, or type.
+        Used to pick a unit when assigning a stay.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: residenceId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: floorId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: unitType
+          in: query
+          schema:
+            $ref: '#/components/schemas/DormUnitType'
+      responses:
+        '200':
+          description: List of dorm units.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DormUnit'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /housing/housekeeper-assignments:
+    post:
+      tags: [Assignments]
+      operationId: assignHousekeeper
+      summary: Assign an operator to a residence
+      description: |
+        Binds an operator (`userId` from Identity) to a residence. Enforces one
+        residence per operator — the scheduling rule "an operator never leaves
+        their residence".
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateHousekeeperAssignmentRequest'
+      responses:
+        '201':
+          description: Assignment created.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HousekeeperAssignment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /housing/healthz:
+    get:
+      tags: [Inventory]
+      operationId: healthz
+      summary: Liveness probe
+      security: []
+      responses:
+        '200':
+          description: Service is healthy.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Access token issued by the Identity service, sent as
+        `Authorization: Bearer <token>`.
+
+        The token is a signed RS256 JWT with these claims:
+
+          - `sub`           — account id (`users.id`)
+          - `sid`           — session id
+          - `campus_id`     — campus id
+          - `role`          — `student`, `staff`, `admin`, `guest`, `worker`
+          - `worker_role`   — worker function (only when `role: worker`):
+                              `housing_manager`, `housekeeper_supervisor`,
+                              `housekeeper_operator`
+          - `iat` / `exp`   — issued-at / expiry (10 minutes)
+          - `iss` / `aud`   — `campus-identity` / `campus-api`
+          - `jti`           — unique token id
+
+  headers:
+    RequestId:
+      description: Unique id of this request, for tracing and support.
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: Missing, invalid or expired credentials/token.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+        WWW-Authenticate:
+          description: Authentication scheme expected.
+          schema:
+            type: string
+            example: 'Bearer realm="campus-api"'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: The caller's role does not allow this operation.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: The resource does not exist (or is not visible to the caller).
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: The request violates a uniqueness or state invariant.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    BadRequest:
+      description: The request could not be understood (e.g. malformed JSON).
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    ValidationError:
+      description: Well-formed JSON that violates a business or format rule.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ValidationProblem'
+
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+          description: Stable identifier of the error kind.
+        title:
+          type: string
+          description: Short human-readable summary.
+        status:
+          type: integer
+          description: HTTP status code.
+        detail:
+          type: string
+          description: Explanation specific to this occurrence.
+        code:
+          type: string
+          description: Machine-readable code for client logic.
+        requestId:
+          type: string
+          format: uuid
+
+    ValidationProblem:
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          required: [errors]
+          properties:
+            errors:
+              type: array
+              items:
+                type: object
+                required: [field, code]
+                properties:
+                  field:
+                    type: string
+                  code:
+                    type: string
+                  message:
+                    type: string
+
+    StayStatus:
+      type: string
+      enum: [planned, active, ended, cancelled]
+
+    CleaningRequestStatus:
+      type: string
+      enum: [pending, scheduled, completed, cancelled]
+
+    CleaningShiftStatus:
+      type: string
+      enum: [planned, in_progress, completed]
+
+    CleaningTaskStatus:
+      type: string
+      enum: [pending, in_progress, done, skipped]
+
+    DormUnitType:
+      type: string
+      enum: [room, apart, corridor, kitchen, laundry]
+
+    ResidenceGenderPolicy:
+      type: string
+      enum: [male_only, female_only]
+
+    Residence:
+      type: object
+      required: [id, campusId, code, name, genderPolicy]
+      properties:
+        id:
+          type: integer
+          format: int64
+        campusId:
+          type: integer
+          format: int64
+        code:
+          type: string
+          description: Numeric residence code (e.g. `12`).
+          example: '12'
+        name:
+          type: string
+        genderPolicy:
+          $ref: '#/components/schemas/ResidenceGenderPolicy'
+
+    DormUnit:
+      type: object
+      required: [id, floorId, unitNumber, code, unitType, capacity]
+      properties:
+        id:
+          type: integer
+          format: int64
+        floorId:
+          type: integer
+          format: int64
+        unitNumber:
+          type: string
+          description: e.g. `1`, `14`, `CORR`, `KITCH`, `LAUND`.
+        code:
+          type: string
+          description: Canonical full code, e.g. `12A2-1`, `12A2-CORR`.
+        unitType:
+          $ref: '#/components/schemas/DormUnitType'
+        capacity:
+          type: integer
+          description: Living capacity; `0` for common areas.
+
+    Stay:
+      type: object
+      required:
+        [id, studentId, dormUnitId, startDate, endDate, status, assignedBy, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        studentId:
+          type: integer
+          format: int64
+          description: Identity user id of the student.
+        dormUnitId:
+          type: integer
+          format: int64
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/StayStatus'
+        assignedBy:
+          type: integer
+          format: int64
+          description: Identity user id of the Housing Manager.
+        checkedInBy:
+          type: integer
+          format: int64
+          nullable: true
+          description: Identity user id of the Housing Manager who checked the student in.
+        checkedInAt:
+          type: string
+          format: date-time
+          nullable: true
+        checkedOutBy:
+          type: integer
+          format: int64
+          nullable: true
+          description: Identity user id of the Housing Manager who checked the student out.
+        checkedOutAt:
+          type: string
+          format: date-time
+          nullable: true
+        cancelledBy:
+          type: integer
+          format: int64
+          nullable: true
+        cancelledAt:
+          type: string
+          format: date-time
+          nullable: true
+        cancellationReason:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateStayRequest:
+      type: object
+      required: [studentId, dormUnitId, startDate, endDate]
+      additionalProperties: false
+      properties:
+        studentId:
+          type: integer
+          format: int64
+        dormUnitId:
+          type: integer
+          format: int64
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+
+    CancelStayRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          description: Why the assignment is being cancelled.
+
+    CleaningRequest:
+      type: object
+      required: [id, dormUnitId, studentId, stayId, scheduledDate, status, year, isoWeek, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        dormUnitId:
+          type: integer
+          format: int64
+        studentId:
+          type: integer
+          format: int64
+        stayId:
+          type: integer
+          format: int64
+        scheduledDate:
+          type: string
+          format: date
+          description: Execution date (tomorrow).
+        status:
+          $ref: '#/components/schemas/CleaningRequestStatus'
+        year:
+          type: integer
+        isoWeek:
+          type: integer
+          description: ISO week number (1–53) for the weekly quota.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateCleaningRequestRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        scheduledDate:
+          type: string
+          format: date
+          description: |
+            Must be tomorrow. If omitted, defaults to tomorrow. `dormUnitId`
+            is always derived from the caller's active stay.
+
+    CleaningShift:
+      type: object
+      required: [id, operatorId, supervisorId, campusId, shiftDate, startTime, endTime, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        operatorId:
+          type: integer
+          format: int64
+        supervisorId:
+          type: integer
+          format: int64
+        campusId:
+          type: integer
+          format: int64
+        shiftDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+          example: '08:00:00'
+        endTime:
+          type: string
+          example: '17:00:00'
+        status:
+          $ref: '#/components/schemas/CleaningShiftStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CleaningTask:
+      type: object
+      required: [id, shiftId, dormUnitId, taskOrder, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        shiftId:
+          type: integer
+          format: int64
+        dormUnitId:
+          type: integer
+          format: int64
+        cleaningRequestId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Null for common-area tasks.
+        taskOrder:
+          type: integer
+        status:
+          $ref: '#/components/schemas/CleaningTaskStatus'
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    HousekeeperAssignment:
+      type: object
+      required: [id, userId, residenceId, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+          description: Identity user id of the operator.
+        residenceId:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateHousekeeperAssignmentRequest:
+      type: object
+      required: [userId, residenceId]
+      additionalProperties: false
+      properties:
+        userId:
+          type: integer
+          format: int64
+        residenceId:
+          type: integer
+          format: int64
