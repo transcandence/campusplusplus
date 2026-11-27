@@ -180,7 +180,7 @@ export interface components {
             /** Format: password */
             password: string;
             /** @enum {string} */
-            userType: "student" | "worker" | "guest";
+            userType: "student" | "guest";
             /** @description Optional attributes specific to the userType (e.g. affiliation for students). */
             subtypeAttributes?: {
                 [key: string]: unknown;
@@ -246,6 +246,11 @@ export interface components {
             affiliation: "1337" | "ABS" | "FGSES" | "SHBM" | "SAS" | "CC" | "AEM" | "um6p";
             /** @enum {string} */
             role: "student" | "staff" | "admin" | "guest" | "worker";
+            /**
+             * @description Worker function; present only when `role` is `worker`, null otherwise.
+             * @enum {string}
+             */
+            workerRole?: "housing_manager" | "housekeeper_supervisor" | "housekeeper_operator";
             /** @enum {string} */
             status: "pending_verification" | "active" | "suspended";
             /**

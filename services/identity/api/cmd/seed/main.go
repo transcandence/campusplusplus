@@ -21,9 +21,12 @@ type seedUser struct {
 	Phone       string
 	Affiliation string
 	Role        string
+	WorkerRole  *string
 	Gender      string
 	Password    string
 }
+
+func strPtr(s string) *string { return &s }
 
 func main() {
 	if err := run(); err != nil {
@@ -85,6 +88,7 @@ func run() error {
 			Phone:       "+212600000002",
 			Affiliation: "um6p",
 			Role:        "worker",
+			WorkerRole:  strPtr("housekeeper_operator"),
 			Gender:      "male",
 			Password:    "Worker@123456",
 		},
@@ -103,15 +107,16 @@ func run() error {
 	const upsertUserQuery = `
 		INSERT INTO users (
 			first_name, last_name, email, phone_number,
-			affiliation, role, gender, password_hash,
+			affiliation, role, worker_role, gender, password_hash,
 			status, campus_id
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active', $9)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active', $10)
 		ON CONFLICT (email) DO UPDATE SET
 			first_name    = EXCLUDED.first_name,
 			last_name     = EXCLUDED.last_name,
 			phone_number  = EXCLUDED.phone_number,
 			affiliation   = EXCLUDED.affiliation,
 			role          = EXCLUDED.role,
+			worker_role   = EXCLUDED.worker_role,
 			gender        = EXCLUDED.gender,
 			password_hash = EXCLUDED.password_hash,
 			status        = 'active',
@@ -136,6 +141,7 @@ func run() error {
 			u.Phone,
 			u.Affiliation,
 			u.Role,
+			u.WorkerRole,
 			u.Gender,
 			hash,
 			campusID,

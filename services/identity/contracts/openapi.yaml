@@ -671,6 +671,10 @@ components:
         role:
           type: string
           enum: [student, staff, admin, guest, worker]
+        workerRole:
+          type: string
+          enum: [housing_manager, housekeeper_supervisor, housekeeper_operator]
+          description: Worker function; present only when `role` is `worker`, null otherwise.
         status:
           type: string
           enum: [pending_verification, active, suspended]

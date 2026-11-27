@@ -28,7 +28,6 @@ const (
 const (
 	RegisterRequestUserTypeGuest   RegisterRequestUserType = "guest"
 	RegisterRequestUserTypeStudent RegisterRequestUserType = "student"
-	RegisterRequestUserTypeWorker  RegisterRequestUserType = "worker"
 )
 
 // Defines values for TokenResponseTokenType.
@@ -69,6 +68,13 @@ const (
 	Active              UserMeStatus = "active"
 	PendingVerification UserMeStatus = "pending_verification"
 	Suspended           UserMeStatus = "suspended"
+)
+
+// Defines values for UserMeWorkerRole.
+const (
+	HousekeeperOperator   UserMeWorkerRole = "housekeeper_operator"
+	HousekeeperSupervisor UserMeWorkerRole = "housekeeper_supervisor"
+	HousingManager        UserMeWorkerRole = "housing_manager"
 )
 
 // LoginRequest defines model for LoginRequest.
@@ -189,6 +195,9 @@ type UserMe struct {
 	LastName string       `json:"lastName"`
 	Role     UserMeRole   `json:"role"`
 	Status   UserMeStatus `json:"status"`
+
+	// WorkerRole Worker function; present only when `role` is `worker`, null otherwise.
+	WorkerRole *UserMeWorkerRole `json:"workerRole,omitempty"`
 }
 
 // UserMeAffiliation defines model for UserMe.Affiliation.
@@ -199,6 +208,9 @@ type UserMeRole string
 
 // UserMeStatus defines model for UserMe.Status.
 type UserMeStatus string
+
+// UserMeWorkerRole Worker function; present only when `role` is `worker`, null otherwise.
+type UserMeWorkerRole string
 
 // ValidationProblem defines model for ValidationProblem.
 type ValidationProblem struct {

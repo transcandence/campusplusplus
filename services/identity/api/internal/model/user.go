@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/transcandence/campusplusplus/platform/go/auth"
+)
 
 type Affiliation string
 
@@ -51,9 +55,10 @@ type User struct {
 	Email        *string      `db:"email"`
 	PhoneNumber  *string      `db:"phone_number"`
 	Birthday     *time.Time  `db:"birthday"`
-	Affiliation  Affiliation `db:"affiliation"`
-	Role         Role        `db:"role"`
-	Gender       *string     `db:"gender"`
+	Affiliation  Affiliation       `db:"affiliation"`
+	Role         Role              `db:"role"`
+	WorkerRole   *auth.WorkerRole  `db:"worker_role"`
+	Gender       *string           `db:"gender"`
 	PasswordHash string      `db:"password_hash"`
 	Nationality  *string     `db:"nationality"`
 	Status       Status      `db:"status"`
@@ -63,15 +68,16 @@ type User struct {
 }
 
 type UserMe struct {
-	ID          int64       `json:"id"`
-	Email       string      `json:"email"`
-	FirstName   string      `json:"firstName"`
-	LastName    string      `json:"lastName"`
-	Affiliation Affiliation `json:"affiliation"`
-	Role        Role        `json:"role"`
-	Status      Status      `json:"status"`
-	Campus      CampusCode  `json:"campus"`
-	CreatedAt   time.Time   `json:"createdAt"`
+	ID          int64            `json:"id"`
+	Email       string           `json:"email"`
+	FirstName   string           `json:"firstName"`
+	LastName    string           `json:"lastName"`
+	Affiliation Affiliation      `json:"affiliation"`
+	Role        Role             `json:"role"`
+	WorkerRole  *auth.WorkerRole `json:"workerRole,omitempty"`
+	Status      Status           `json:"status"`
+	Campus      CampusCode       `json:"campus"`
+	CreatedAt   time.Time        `json:"createdAt"`
 }
 
 func IsSelfRegisterRole(r Role) bool {
@@ -82,6 +88,16 @@ func IsSelfRegisterRole(r Role) bool {
     return false
 }
 
+// WorkerRoleOrZero returns the user's worker role, or the zero value ("") for
+// non-workers. Used when issuing tokens so the worker_role claim is empty
+// (and omitted) for non-workers.
+func (u *User) WorkerRoleOrZero() auth.WorkerRole {
+	if u.WorkerRole == nil {
+		return ""
+	}
+	return *u.WorkerRole
+}
+
 func (u *User) ToMe(campus CampusCode) UserMe {
 	email := ""
     if u.Email != nil {
@@ -89,7 +105,7 @@ func (u *User) ToMe(campus CampusCode) UserMe {
     }
     return UserMe{
         ID: u.ID, Email: email, FirstName: u.FirstName, LastName: u.LastName,
-        Affiliation: u.Affiliation, Role: u.Role, Status: u.Status,
+        Affiliation: u.Affiliation, Role: u.Role, WorkerRole: u.WorkerRole, Status: u.Status,
         Campus: campus, CreatedAt: u.CreatedAt,
     }
 }
