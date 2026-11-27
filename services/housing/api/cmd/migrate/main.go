@@ -14,8 +14,6 @@ import (
 	"github.com/transcandence/campusplusplus/services/housing/api/internal/config"
 )
 
-const migrationsDir = "migrations"
-
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
@@ -33,7 +31,13 @@ func run(args []string) error {
 	}
 	dbURL := toPgx5URL(cfg.DatabaseURL)
 
-	m, err := migrate.New("file://"+migrationsDir, dbURL)
+	// Fail with a readable message instead of golang-migrate's opaque
+	// "no such file or directory" from the file:// source.
+	if fi, statErr := os.Stat(cfg.MigrationsDir); statErr != nil || !fi.IsDir() {
+		return fmt.Errorf("migrations directory %q not found (set MIGRATIONS_DIR)", cfg.MigrationsDir)
+	}
+
+	m, err := migrate.New("file://"+cfg.MigrationsDir, dbURL)
 	if err != nil {
 		return fmt.Errorf("creating migrator: %w", err)
 	}
