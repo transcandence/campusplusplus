@@ -11,6 +11,9 @@ export type LogoutRequest = components["schemas"]["LogoutRequest"];
 export type TokenResponse =
   operations["login"]["responses"][200]["content"]["application/json"];
 
+export type RegisterResponse =
+  operations["register"]["responses"][201]["content"]["application/json"];
+
 export type UserMe =
   operations["getMe"]["responses"][200]["content"]["application/json"];
 

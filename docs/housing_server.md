@@ -182,7 +182,6 @@ $$
   p_M + p_E + p_C = 100\%
 $$
 
-where $p_C$ is constant. The time available in one shift for each part is:
 
 $$
   D_M = p_M \times D \qquad D_E = p_E \times D \qquad D_C = p_C \times D
@@ -213,6 +212,8 @@ where $M(k)$ and $E(k)$ are the accepted morning and evening tasks of residence
 $k$, and $C_k$ is the time of its Common Areas.
 
 
+##### Describing load
+The day's workload is split between the $K$ residences by a share $\alpha_k$, where each share is between 0 and 1 and the shares add up to 1:
 
 1. is one operator's working day
     
