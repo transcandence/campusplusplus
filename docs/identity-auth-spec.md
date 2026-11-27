@@ -26,8 +26,8 @@ Authentication follows a **dual-token model**:
 - `user_role`: `'student', 'staff', 'admin', 'guest', 'worker'`
 - `gender`: `'male', 'female', 'other'`
 - `user_status`:
-  - `pending_verification`: Account created, email not yet verified (cannot log in).
-  - `active`: Verified and in good standing (can log in).
+  - `pending_verification`: Legacy value kept for old rows; registration no longer assigns it.
+  - `active`: In good standing (can log in). New registrations are active immediately.
   - `suspended`: Banned or locked account (cannot log in).
 
 ### 2.2 Tables
@@ -47,15 +47,15 @@ Authentication follows a **dual-token model**:
 | `id` | `SERIAL PRIMARY KEY` | User ID (`sub` in JWT) |
 | `first_name` | `VARCHAR(30) NOT NULL` | First name |
 | `last_name` | `VARCHAR(30) NOT NULL` | Last name |
-| `email` | `CITEXT UNIQUE NOT NULL` | Case-insensitive email (`Sara@x` == `sara@x`) |
-| `phone_number` | `VARCHAR(20) UNIQUE NOT NULL`| User phone |
+| `email` | `CITEXT UNIQUE` | Case-insensitive email (`Sara@x` == `sara@x`); required by the registration API |
+| `phone_number` | `VARCHAR(20) UNIQUE` | Optional profile data; not a login identifier |
 | `birthday` | `DATE` | Optional date of birth |
 | `affiliation` | `affiliation NOT NULL` | Native enum |
 | `role` | `user_role NOT NULL` | Default `'student'::user_role` |
 | `gender` | `gender` | Optional enum |
 | `password_hash` | `TEXT NOT NULL` | Slow hash (Argon2id or bcrypt) |
 | `nationality` | `VARCHAR(60)` | Optional |
-| `status` | `user_status NOT NULL` | Default `'pending_verification'` |
+| `status` | `user_status NOT NULL` | Default `'active'` since `0004_activate_registered_users` |
 | `campus_id` | `INTEGER NOT NULL` | FK $\rightarrow$ `campuses(id) ON DELETE RESTRICT` |
 | `created_at` | `TIMESTAMPTZ NOT NULL` | UTC timestamp |
 | `updated_at` | `TIMESTAMPTZ NOT NULL` | UTC timestamp, updated via trigger |
@@ -239,10 +239,12 @@ Attacker                           Identity Service                     Database
 ### 4.6 Flow 4: Logout Strategies
 
 #### Single-Device Logout (`POST /auth/logout`)
-- Client sends `refreshToken` (`RT_2`).
+- Client sends `refreshToken` (`RT_2`) in a required JSON body.
 - The service hashes the token and marks `revoked_at = now()`.
 - **Only the calling device is logged out.** Other active families remain unaffected.
-- **Idempotent**: Returns `204 No Content` even if already revoked.
+- **Idempotent**: Returns `204 No Content` even if already revoked or unknown.
+- A missing/empty/invalid body returns `422`; a storage failure returns `500`
+  instead of a misleading `204`.
 
 #### All-Devices Logout (`POST /auth/logout-all`)
 - Client sends their valid access token (`Authorization: Bearer <JWT>`).
@@ -254,3 +256,36 @@ Attacker                           Identity Service                     Database
      AND revoked_at IS NULL;
   ```
 - All families across all devices are immediately invalidated.
+
+---
+
+### 4.7 Session Management
+
+#### List Sessions (`GET /sessions`)
+- Requires a valid bearer token.
+- Returns every non-revoked, non-expired session for the authenticated user.
+- The session matching the current JWT `sid` claim is marked `current: true`.
+- Exposes only safe fields: `id`, `createdAt`, `expiresAt`, `lastUsedAt`,
+  `ipAddress`, `userAgent`, `current`.
+- Never exposes `token_hash`, `family_id`, `replaced_by`, or rotation metadata.
+
+#### Revoke One Session (`DELETE /sessions/{sessionId}`)
+- Requires a valid bearer token.
+- Revokes the session only if it belongs to the authenticated user.
+- `204` on success.
+- `404 session_not_found` when the session does not exist, is already revoked,
+  or belongs to another user.
+
+---
+
+### 4.8 Session Limits and Cleanup
+
+- `MAX_ACTIVE_SESSIONS` (default `10`) caps the number of active sessions per
+  user. On login, the oldest sessions above the limit are revoked.
+- `last_used_at` is set at login and updated on every successful refresh, for
+  both the rotated-out and the new session.
+- Expired and revoked sessions are kept for `SESSION_RETENTION` (default 30
+  days) and then hard-deleted by the worker every
+  `SESSION_CLEANUP_INTERVAL` (default 1 hour).
+- The cleanup job relies on `sessions.replaced_by` being declared
+  `ON DELETE SET NULL` (migration `0005`).

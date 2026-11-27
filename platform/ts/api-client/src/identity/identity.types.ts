@@ -2,6 +2,7 @@
 import type { components, operations } from "../generated/identity";
 
 // Request DTOs
+export type RegisterRequest = components["schemas"]["RegisterRequest"];
 export type LoginRequest = components["schemas"]["LoginRequest"];
 export type RefreshRequest = components["schemas"]["RefreshRequest"];
 export type LogoutRequest = components["schemas"]["LogoutRequest"];

@@ -66,6 +66,23 @@ services:
     profiles: [identity, seed, all]
     networks: [app_net]
 
+  identity-worker:
+    image: campus_identity:local
+    build:
+      context: ../../
+      dockerfile: services/identity/api/Dockerfile
+    env_file:
+      - ../../services/identity/api/.env.docker
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/campus_identity?sslmode=disable
+    depends_on:
+      identity-migrate:
+        condition: service_completed_successfully
+    command: ["./worker"]
+    restart: unless-stopped
+    profiles: [identity, all]
+    networks: [app_net]
+
   identity-seed:
     image: campus_identity:local
     env_file:

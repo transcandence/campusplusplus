@@ -16,18 +16,21 @@ import (
 )
 
 type Config struct {
-	HTTPAddr             string
-	Env                  string
-	DatabaseURL          string
-	DBMaxConns           int
-	JWTPrivateKeyPath    string
-	JWTPublicKeyPath     string
-	JWTAccessTTL         time.Duration
-	JWTRefreshTTL        time.Duration
-	JWTIssuer            string
-	JWTAudience          string
-	RateLimitLoginPerMin int
-	LogLevel             string
+	HTTPAddr               string
+	Env                    string
+	DatabaseURL            string
+	DBMaxConns             int
+	JWTPrivateKeyPath      string
+	JWTPublicKeyPath       string
+	JWTAccessTTL           time.Duration
+	JWTRefreshTTL          time.Duration
+	JWTIssuer              string
+	JWTAudience            string
+	RateLimitLoginPerMin   int
+	MaxActiveSessions      int
+	SessionRetention       time.Duration
+	SessionCleanupInterval time.Duration
+	LogLevel               string
 }
 
 func Load() (*Config, error) {
@@ -55,10 +58,26 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("JWT_REFRESH_TTL: %w", err)
 	}
 	c.RateLimitLoginPerMin = getenvInt("RATE_LIMIT_LOGIN_PER_MIN", 10)
+	c.MaxActiveSessions = getenvInt("MAX_ACTIVE_SESSIONS", 10)
+	if c.SessionRetention, err = getenvDuration("SESSION_RETENTION", 30*24*time.Hour); err != nil {
+		return nil, fmt.Errorf("SESSION_RETENTION: %w", err)
+	}
+	if c.SessionCleanupInterval, err = getenvDuration("SESSION_CLEANUP_INTERVAL", time.Hour); err != nil {
+		return nil, fmt.Errorf("SESSION_CLEANUP_INTERVAL: %w", err)
+	}
 
 	// Required fields.
 	if c.DatabaseURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL is required")
+	}
+	if c.MaxActiveSessions < 1 {
+		return nil, fmt.Errorf("MAX_ACTIVE_SESSIONS must be at least 1")
+	}
+	if c.SessionRetention <= 0 {
+		return nil, fmt.Errorf("SESSION_RETENTION must be positive")
+	}
+	if c.SessionCleanupInterval <= 0 {
+		return nil, fmt.Errorf("SESSION_CLEANUP_INTERVAL must be positive")
 	}
 
 	return c, nil

@@ -15,8 +15,13 @@ export interface paths {
         put?: never;
         /**
          * Register a new user account
-         * @description Creates a new user account. Requires a full name, password, user type,
-         *     and at least one contact method (email or phone).
+         * @description Creates a new user account. Requires a full name, a valid email,
+         *     a password, and a user type.
+         *
+         *     The account is **active immediately**: there is no email-verification
+         *     step in the current implementation, so the user can log in as soon as
+         *     registration succeeds. The phone number is optional profile data and
+         *     cannot be used as a login identifier.
          */
         post: operations["register"];
         delete?: never;
@@ -157,6 +162,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List active sessions
+         * @description Returns the active sessions of the authenticated user. The current
+         *     session is marked with `current: true`. Token hashes and rotation
+         *     metadata are never exposed.
+         */
+        get: operations["listSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sessions/{sessionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke one session
+         * @description Revokes one active session belonging to the authenticated user.
+         *     Returns `404` when the session does not exist, is already revoked,
+         *     or belongs to another user.
+         */
+        delete: operations["revokeSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -174,18 +223,22 @@ export interface components {
             fullName: string;
             /** @enum {string} */
             gender?: "male" | "female" | "other";
-            /** Format: email */
-            email?: string;
+            /**
+             * Format: email
+             * @description Login identifier. Required; the account is active immediately.
+             */
+            email: string;
+            /** @description Optional profile data; not a login identifier. */
             phone?: string;
             /** Format: password */
             password: string;
             /** @enum {string} */
-            userType: "student" | "worker" | "guest";
+            userType: "student" | "guest";
             /** @description Optional attributes specific to the userType (e.g. affiliation for students). */
             subtypeAttributes?: {
                 [key: string]: unknown;
             };
-        } | unknown | unknown;
+        };
         UpdateMeRequest: {
             fullName?: string;
             /** @enum {string} */
@@ -255,6 +308,19 @@ export interface components {
             campus: string;
             /** Format: date-time */
             createdAt: string;
+        };
+        SessionSummary: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: date-time */
+            lastUsedAt?: string | null;
+            ipAddress?: string;
+            userAgent?: string | null;
+            current: boolean;
         };
         Problem: {
             /**
@@ -335,6 +401,16 @@ export interface components {
         };
         /** @description The resource already exists (duplicate email or phone number). */
         Conflict: {
+            headers: {
+                "X-Request-Id": components["headers"]["RequestId"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The requested resource does not exist or is not owned by the caller. */
+        NotFound: {
             headers: {
                 "X-Request-Id": components["headers"]["RequestId"];
                 [name: string]: unknown;
@@ -569,6 +645,54 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationError"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    listSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active sessions, newest first. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControlNoStore"];
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionSummary"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    revokeSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session revoked. */
+            204: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
             429: components["responses"]["TooManyRequests"];
         };
     };

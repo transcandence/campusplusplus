@@ -6,6 +6,18 @@ import (
 	"github.com/google/uuid"
 )
 
+// SessionSummary is the safe, client-facing view of a session. It never
+// contains token hashes, family ids, or rotation metadata.
+type SessionSummary struct {
+	ID         int64      `json:"id"`
+	CreatedAt  time.Time  `json:"createdAt"`
+	ExpiresAt  time.Time  `json:"expiresAt"`
+	LastUsedAt *time.Time `json:"lastUsedAt,omitempty"`
+	IPAddress  string     `json:"ipAddress,omitempty"`
+	UserAgent  *string    `json:"userAgent,omitempty"`
+	Current    bool       `json:"current"`
+}
+
 type Session struct {
 	ID         int64      `db:"id"`
 	UserID     int64      `db:"user_id"`

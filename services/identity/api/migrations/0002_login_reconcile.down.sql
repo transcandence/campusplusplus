@@ -71,34 +71,26 @@ DROP INDEX IF EXISTS idx_sessions_family_id;
 --   ADD COLUMN revoked_at, last_used_at, family_id, rotated_at, replaced_by;
 --   CREATE INDEX idx_sessions_family_id;
 --
--- The down must reverse this. The tricky part: `token` was UNIQUE NOT
--- NULL, and `token_hash` is UNIQUE NOT NULL. We can't have both UNIQUE
--- NOT NULL columns populated at once if we want to allow rows without
--- hashes. Since the up TRUNCATEd, there are no rows to preserve — so we
--- drop token_hash entirely, re-add token as nullable first, then tighten
--- to NOT NULL after a (zero-row) backfill. This mirrors the up's
--- TRUNCATE-then-recreate approach.
+-- The down cannot recover the original plaintext token from a SHA-256 hash.
+-- It restores the old column shape by writing the hex hash into token, so
+-- the migration works on a non-empty table. Those sessions will not
+-- authenticate with the old application and should be revoked; no rows are
+-- deleted by the migration.
 
 ALTER TABLE sessions DROP CONSTRAINT IF EXISTS sessions_expiry_ck;
-
--- Drop the unique constraint on token_hash before dropping the column.
--- (DROP COLUMN would cascade, but being explicit documents intent.)
 ALTER TABLE sessions DROP CONSTRAINT IF EXISTS sessions_token_hash_uniq;
-ALTER TABLE sessions DROP COLUMN IF EXISTS token_hash;
 
--- Restore the plaintext token column. NOT NULL UNIQUE, as in 0001.
--- The table is empty (the up TRUNCATEd it), so adding NOT NULL is safe.
-ALTER TABLE sessions ADD COLUMN token TEXT NOT NULL;
+ALTER TABLE sessions ADD COLUMN token TEXT;
+UPDATE sessions SET token = encode(token_hash, 'hex');
+ALTER TABLE sessions ALTER COLUMN token SET NOT NULL;
 ALTER TABLE sessions
     ADD CONSTRAINT sessions_token_key UNIQUE (token);
+ALTER TABLE sessions DROP COLUMN IF EXISTS token_hash;
 
--- Restore the one-session-per-user UNIQUE constraint that the up dropped.
--- The up created idx_sessions_user_id as a non-unique index; the down
--- drops the index and re-adds the UNIQUE constraint (which creates its
--- own index).
+-- 0001 did not define a UNIQUE(user_id) constraint on sessions, and the
+-- application supports multiple sessions per user. Only remove the index
+-- created by the up migration; do not re-add a UNIQUE constraint.
 DROP INDEX IF EXISTS idx_sessions_user_id;
-ALTER TABLE sessions
-    ADD CONSTRAINT sessions_user_id_key UNIQUE (user_id);
 
 -- Drop the lifecycle columns from step 7.
 ALTER TABLE sessions DROP COLUMN IF EXISTS replaced_by;
