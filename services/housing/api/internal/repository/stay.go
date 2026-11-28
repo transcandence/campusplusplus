@@ -190,7 +190,6 @@ func (r *StayRepository) CreateStay(ctx context.Context, p model.CreateStayParam
 	return stay, nil
 }
 
-// CheckInStay re-validates the state machine and capacity under locks.
 func (r *StayRepository) CheckInStay(ctx context.Context, id, by int64) (*model.Stay, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -299,8 +298,6 @@ func (r *StayRepository) CancelStay(ctx context.Context, id, by int64, reason *s
 	return updated, nil
 }
 
-// getStayTx is the in-transaction twin of Get. It exists so the atomic methods
-// above can read the row they are about to change under the same lock.
 func getStayTx(ctx context.Context, tx pgx.Tx, id int64, forUpdate bool) (*model.Stay, int64, error) {
 	query := stayQuery("WHERE s.id = $1")
 	if forUpdate {
