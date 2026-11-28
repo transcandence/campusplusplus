@@ -321,17 +321,18 @@ paths:
       summary: Book a next-day cleaning
       description: |
         Books a cleaning of the caller's assigned unit. Enforces: the caller
-        has an `active` stay, `scheduledDate` is strictly **tomorrow**, and at
-        most **one request per unit per week** (tracked via `year` + `isoWeek`).
-        `dormUnitId` is derived from the caller's active stay.
+        has an `active` stay, `scheduledDate` is strictly **tomorrow**, `slot`
+        is `morning` or `afternoon`, and at most **one request per unit per
+        week** (tracked via `year` + `isoWeek`). `dormUnitId` is derived from
+        the caller's active stay.
       security:
         - bearerAuth: []
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateCleaningRequestRequest'
+              $ref: '#/components/schemas/CleaningRequestInput'
       responses:
         '201':
           description: Cleaning request created (status `pending`).
@@ -778,6 +779,13 @@ components:
       type: string
       enum: [pending, scheduled, completed, cancelled]
 
+    CleaningSlot:
+      type: string
+      enum: [morning, afternoon]
+      description: |
+        Half-day booking bucket chosen by the student. The concrete working
+        hours are carried by the operator's shift, not by this field.
+
     CleaningShiftStatus:
       type: string
       enum: [planned, in_progress, completed]
@@ -926,7 +934,7 @@ components:
 
     CleaningRequest:
       type: object
-      required: [id, dormUnitId, studentId, stayId, scheduledDate, status, year, isoWeek, createdAt, updatedAt]
+      required: [id, dormUnitId, studentId, stayId, scheduledDate, slot, status, year, isoWeek, createdAt, updatedAt]
       properties:
         id:
           type: integer
@@ -944,6 +952,8 @@ components:
           type: string
           format: date
           description: Execution date (tomorrow).
+        slot:
+          $ref: '#/components/schemas/CleaningSlot'
         status:
           $ref: '#/components/schemas/CleaningRequestStatus'
         year:
@@ -958,9 +968,10 @@ components:
           type: string
           format: date-time
 
-    CreateCleaningRequestRequest:
+    CleaningRequestInput:
       type: object
       additionalProperties: false
+      required: [slot]
       properties:
         scheduledDate:
           type: string
@@ -968,6 +979,8 @@ components:
           description: |
             Must be tomorrow. If omitted, defaults to tomorrow. `dormUnitId`
             is always derived from the caller's active stay.
+        slot:
+          $ref: '#/components/schemas/CleaningSlot'
 
     CleaningShift:
       type: object

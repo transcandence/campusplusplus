@@ -32,6 +32,12 @@ const (
 	CleaningShiftStatusPlanned    CleaningShiftStatus = "planned"
 )
 
+// Defines values for CleaningSlot.
+const (
+	Afternoon CleaningSlot = "afternoon"
+	Morning   CleaningSlot = "morning"
+)
+
 // Defines values for CleaningTaskStatus.
 const (
 	Done       CleaningTaskStatus = "done"
@@ -79,12 +85,27 @@ type CleaningRequest struct {
 	IsoWeek int `json:"isoWeek"`
 
 	// ScheduledDate Execution date (tomorrow).
-	ScheduledDate openapi_types.Date    `json:"scheduledDate"`
-	Status        CleaningRequestStatus `json:"status"`
-	StayId        int64                 `json:"stayId"`
-	StudentId     int64                 `json:"studentId"`
-	UpdatedAt     time.Time             `json:"updatedAt"`
-	Year          int                   `json:"year"`
+	ScheduledDate openapi_types.Date `json:"scheduledDate"`
+
+	// Slot Half-day booking bucket chosen by the student. The concrete working
+	// hours are carried by the operator's shift, not by this field.
+	Slot      CleaningSlot          `json:"slot"`
+	Status    CleaningRequestStatus `json:"status"`
+	StayId    int64                 `json:"stayId"`
+	StudentId int64                 `json:"studentId"`
+	UpdatedAt time.Time             `json:"updatedAt"`
+	Year      int                   `json:"year"`
+}
+
+// CleaningRequestInput defines model for CleaningRequestInput.
+type CleaningRequestInput struct {
+	// ScheduledDate Must be tomorrow. If omitted, defaults to tomorrow. `dormUnitId`
+	// is always derived from the caller's active stay.
+	ScheduledDate *openapi_types.Date `json:"scheduledDate,omitempty"`
+
+	// Slot Half-day booking bucket chosen by the student. The concrete working
+	// hours are carried by the operator's shift, not by this field.
+	Slot CleaningSlot `json:"slot"`
 }
 
 // CleaningRequestStatus defines model for CleaningRequestStatus.
@@ -107,6 +128,10 @@ type CleaningShift struct {
 // CleaningShiftStatus defines model for CleaningShiftStatus.
 type CleaningShiftStatus string
 
+// CleaningSlot Half-day booking bucket chosen by the student. The concrete working
+// hours are carried by the operator's shift, not by this field.
+type CleaningSlot string
+
 // CleaningTask defines model for CleaningTask.
 type CleaningTask struct {
 	// CleaningRequestId Null for common-area tasks.
@@ -124,13 +149,6 @@ type CleaningTask struct {
 
 // CleaningTaskStatus defines model for CleaningTaskStatus.
 type CleaningTaskStatus string
-
-// CreateCleaningRequestRequest defines model for CreateCleaningRequestRequest.
-type CreateCleaningRequestRequest struct {
-	// ScheduledDate Must be tomorrow. If omitted, defaults to tomorrow. `dormUnitId`
-	// is always derived from the caller's active stay.
-	ScheduledDate *openapi_types.Date `json:"scheduledDate,omitempty"`
-}
 
 // CreateHousekeeperAssignmentRequest defines model for CreateHousekeeperAssignmentRequest.
 type CreateHousekeeperAssignmentRequest struct {
@@ -312,7 +330,7 @@ type ListStaysParams struct {
 }
 
 // CreateCleaningRequestJSONRequestBody defines body for CreateCleaningRequest for application/json ContentType.
-type CreateCleaningRequestJSONRequestBody = CreateCleaningRequestRequest
+type CreateCleaningRequestJSONRequestBody = CleaningRequestInput
 
 // AssignHousekeeperJSONRequestBody defines body for AssignHousekeeper for application/json ContentType.
 type AssignHousekeeperJSONRequestBody = CreateHousekeeperAssignmentRequest
