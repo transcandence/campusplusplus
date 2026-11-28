@@ -285,31 +285,31 @@ type UpdateMeJSONRequestBody = UpdateMeRequest
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Log in with email and password
-	// (POST /auth/login)
+	// (POST /identity/auth/login)
 	Login(c *gin.Context)
 	// End the current session
-	// (POST /auth/logout)
+	// (POST /identity/auth/logout)
 	Logout(c *gin.Context)
 	// End every session for the current user
-	// (POST /auth/logout-all)
+	// (POST /identity/auth/logout-all)
 	LogoutAll(c *gin.Context)
 	// Exchange a refresh token for new tokens
-	// (POST /auth/refresh)
+	// (POST /identity/auth/refresh)
 	Refresh(c *gin.Context)
 	// Register a new user account
-	// (POST /auth/register)
+	// (POST /identity/auth/register)
 	Register(c *gin.Context)
 	// Get the current user
-	// (GET /me)
+	// (GET /identity/me)
 	GetMe(c *gin.Context)
 	// Update current user profile
-	// (PUT /me)
+	// (PUT /identity/me)
 	UpdateMe(c *gin.Context)
 	// List active sessions
-	// (GET /sessions)
+	// (GET /identity/sessions)
 	ListSessions(c *gin.Context)
 	// Revoke one session
-	// (DELETE /sessions/{sessionId})
+	// (DELETE /identity/sessions/{sessionId})
 	RevokeSession(c *gin.Context, sessionId int64)
 }
 
@@ -487,13 +487,13 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
-	router.POST(options.BaseURL+"/auth/login", wrapper.Login)
-	router.POST(options.BaseURL+"/auth/logout", wrapper.Logout)
-	router.POST(options.BaseURL+"/auth/logout-all", wrapper.LogoutAll)
-	router.POST(options.BaseURL+"/auth/refresh", wrapper.Refresh)
-	router.POST(options.BaseURL+"/auth/register", wrapper.Register)
-	router.GET(options.BaseURL+"/me", wrapper.GetMe)
-	router.PUT(options.BaseURL+"/me", wrapper.UpdateMe)
-	router.GET(options.BaseURL+"/sessions", wrapper.ListSessions)
-	router.DELETE(options.BaseURL+"/sessions/:sessionId", wrapper.RevokeSession)
+	router.POST(options.BaseURL+"/identity/auth/login", wrapper.Login)
+	router.POST(options.BaseURL+"/identity/auth/logout", wrapper.Logout)
+	router.POST(options.BaseURL+"/identity/auth/logout-all", wrapper.LogoutAll)
+	router.POST(options.BaseURL+"/identity/auth/refresh", wrapper.Refresh)
+	router.POST(options.BaseURL+"/identity/auth/register", wrapper.Register)
+	router.GET(options.BaseURL+"/identity/me", wrapper.GetMe)
+	router.PUT(options.BaseURL+"/identity/me", wrapper.UpdateMe)
+	router.GET(options.BaseURL+"/identity/sessions", wrapper.ListSessions)
+	router.DELETE(options.BaseURL+"/identity/sessions/:sessionId", wrapper.RevokeSession)
 }
