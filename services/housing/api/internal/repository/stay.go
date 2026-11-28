@@ -87,7 +87,6 @@ func (r *StayRepository) List(ctx context.Context, f model.StayFilter) ([]model.
 	return out, rows.Err()
 }
 
-// Get returns one stay plus the campus id of its residence.
 func (r *StayRepository) Get(ctx context.Context, id int64) (*model.Stay, int64, error) {
 	st, campusID, err := scanStay(r.pool.QueryRow(ctx, stayQuery("WHERE s.id = $1"), id), true)
 	if err != nil {
@@ -113,8 +112,6 @@ func (r *StayRepository) GetActiveByStudent(ctx context.Context, studentID int64
 	return st, nil
 }
 
-// FindUnitWithPolicy is the non-locking read the service uses to apply the
-// living-unit, campus and gender rules before the write.
 func (r *StayRepository) FindUnitWithPolicy(ctx context.Context, unitID int64) (model.UnitWithPolicy, error) {
 	const query = `
 		SELECT du.id, du.floor_id, du.unit_number, du.code, du.unit_type::text, du.capacity,
@@ -138,8 +135,6 @@ func (r *StayRepository) FindUnitWithPolicy(ctx context.Context, unitID int64) (
 	return u, nil
 }
 
-// CreateStay locks the target unit, re-checks capacity and inserts, all in one
-// transaction so two concurrent assignments cannot oversubscribe the unit.
 func (r *StayRepository) CreateStay(ctx context.Context, p model.CreateStayParams) (*model.Stay, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -162,15 +157,20 @@ func (r *StayRepository) CreateStay(ctx context.Context, p model.CreateStayParam
 		return nil, model.ErrUnitNotLiving
 	}
 
-	const countActive = `SELECT count(*) FROM stays WHERE dorm_unit_id = $1 AND status = 'active'`
-	var active int
-	if err := tx.QueryRow(ctx, countActive, p.DormUnitID).Scan(&active); err != nil {
-		return nil, fmt.Errorf("count active stays: %w", err)
+	const countOverlapping = `
+	SELECT count(*) FROM stays
+	WHERE dorm_unit_id = $1
+	  AND status IN ('planned', 'active')
+	  AND start_date < $3      -- existing starts before the new one ends
+	  AND end_date   > $2      -- existing ends after the new one starts`
+
+	var overlapping int
+	if err := tx.QueryRow(ctx, countOverlapping, p.DormUnitID, p.StartDate, p.EndDate).Scan(&overlapping); err != nil {
+		return nil, fmt.Errorf("count overlapping stays: %w", err)
 	}
-	if active >= capacity {
+	if overlapping >= capacity {
 		return nil, model.ErrUnitFull
 	}
-
 	const insert = `
 		INSERT INTO stays (student_id, dorm_unit_id, start_date, end_date, status, assigned_by)
 		VALUES ($1, $2, $3, $4, 'planned', $5)
