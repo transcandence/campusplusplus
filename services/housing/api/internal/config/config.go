@@ -11,12 +11,13 @@ import (
 )
 
 type Config struct {
-	HTTPAddr      string
-	Env           string
-	DatabaseURL   string
-	DBMaxConns    int
-	LogLevel      string
-	MigrationsDir string
+	HTTPAddr          string
+	Env               string
+	DatabaseURL       string
+	DBMaxConns        int
+	JWTPublicKeyPath  string
+	LogLevel          string
+	MigrationsDir     string
 }
 
 func Load() (*Config, error) {
@@ -25,12 +26,13 @@ func Load() (*Config, error) {
 	}
 
 	c := &Config{
-		HTTPAddr:      getenv("HTTP_ADDR", ":8080"),
-		Env:           getenv("ENV", "dev"),
-		DatabaseURL:   os.Getenv("DATABASE_URL"),
-		DBMaxConns:    getenvInt("DB_MAX_CONNS", 10),
-		LogLevel:      getenv("LOG_LEVEL", "info"),
-		MigrationsDir: getenv("MIGRATIONS_DIR", "migrations"),
+		HTTPAddr:         getenv("HTTP_ADDR", ":8080"),
+		Env:              getenv("ENV", "dev"),
+		DatabaseURL:      os.Getenv("DATABASE_URL"),
+		DBMaxConns:       getenvInt("DB_MAX_CONNS", 10),
+		JWTPublicKeyPath: getenv("JWT_PUBLIC_KEY_PATH", "public.pem"),
+		LogLevel:         getenv("LOG_LEVEL", "info"),
+		MigrationsDir:    getenv("MIGRATIONS_DIR", "migrations"),
 	}
 
 	if c.DatabaseURL == "" {
