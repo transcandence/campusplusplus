@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/auth/register": {
+    "/identity/auth/register": {
         parameters: {
             query?: never;
             header?: never;
@@ -30,7 +30,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/login": {
+    "/identity/auth/login": {
         parameters: {
             query?: never;
             header?: never;
@@ -57,7 +57,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/refresh": {
+    "/identity/auth/refresh": {
         parameters: {
             query?: never;
             header?: never;
@@ -85,7 +85,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/logout": {
+    "/identity/auth/logout": {
         parameters: {
             query?: never;
             header?: never;
@@ -109,7 +109,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/logout-all": {
+    "/identity/auth/logout-all": {
         parameters: {
             query?: never;
             header?: never;
@@ -134,7 +134,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/me": {
+    "/identity/me": {
         parameters: {
             query?: never;
             header?: never;
@@ -162,7 +162,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/sessions": {
+    "/identity/sessions": {
         parameters: {
             query?: never;
             header?: never;
@@ -184,7 +184,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/sessions/{sessionId}": {
+    "/identity/sessions/{sessionId}": {
         parameters: {
             query?: never;
             header?: never;

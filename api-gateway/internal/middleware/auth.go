@@ -22,46 +22,46 @@ type ProblemDetails struct {
 	Instance string `json:"instance"`
 }
 
-func isPublicRoute(Method, Path string) bool{
+func isPublicRoute(Method, Path string) bool {
 	switch {
-	case Method == http.MethodPost && Path == "/api/v1/auth/login":
+	case Method == http.MethodPost && Path == "/api/v1/identity/auth/login":
 		return true
-	case Method == http.MethodPost && Path =="/api/v1/auth/refresh":
+	case Method == http.MethodPost && Path == "/api/v1/identity/auth/refresh":
 		return true
-	case Method == http.MethodPost && Path =="/api/v1/auth/register":
+	case Method == http.MethodPost && Path == "/api/v1/identity/auth/register":
 		return true
 	case Method == http.MethodGet && Path == "/healthz":
-		return  true
-	default :
+		return true
+	default:
 		return false
 	}
 }
 
-func writeProblem401(w http.ResponseWriter, r *http.Request, detail string){
+func writeProblem401(w http.ResponseWriter, r *http.Request, detail string) {
 	problem := ProblemDetails{
-		Type: "https://datatracker.ietf.org/doc/html/rfc9110#section-15.5.2",
-		Title: "Unauthorized",
-		Status: http.StatusUnauthorized,
-		Detail: detail,
+		Type:     "https://datatracker.ietf.org/doc/html/rfc9110#section-15.5.2",
+		Title:    "Unauthorized",
+		Status:   http.StatusUnauthorized,
+		Detail:   detail,
 		Instance: r.URL.Path,
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(http.StatusUnauthorized)
 	json.NewEncoder(w).Encode(problem)
-
 }
-func JwtAuth(publicKey *rsa.PublicKey, next http.Handler) http.Handler{
+
+func JwtAuth(publicKey *rsa.PublicKey, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Del("X-User-Id")
 		r.Header.Del("X-User-Role")
 		r.Header.Del("X-Campus-Id")
 		r.Header.Del("X-Session-Id")
-		if isPublicRoute(r.Method, r.URL.Path){
+		if isPublicRoute(r.Method, r.URL.Path) {
 			logger.Info("auth bypassed for public route", "method", r.Method, "path", r.URL.Path,
 				"remote_addr", r.RemoteAddr,
 			)
 			next.ServeHTTP(w, r)
-			return 
+			return
 		}
 		authHeader := r.Header.Get("Authorization")
 		parts := strings.Fields(authHeader)
@@ -105,4 +105,3 @@ func JwtAuth(publicKey *rsa.PublicKey, next http.Handler) http.Handler{
 		next.ServeHTTP(w, r)
 	})
 }
-

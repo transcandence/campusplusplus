@@ -55,7 +55,7 @@ security:
   - bearerAuth: []
 
 paths:
-  /auth/register:
+  /identity/auth/register:
     post:
       tags: [Auth]
       operationId: register
@@ -74,28 +74,28 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RegisterRequest'
+              $ref: "#/components/schemas/RegisterRequest"
       responses:
-        '201':
+        "201":
           description: User registered successfully.
           headers:
             Cache-Control:
-              $ref: '#/components/headers/CacheControlNoStore'
+              $ref: "#/components/headers/CacheControlNoStore"
             X-Request-Id:
-              $ref: '#/components/headers/RequestId'
+              $ref: "#/components/headers/RequestId"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserMe'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-  /auth/login:
+                $ref: "#/components/schemas/UserMe"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /identity/auth/login:
     post:
       tags: [Auth]
       operationId: login
@@ -115,7 +115,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LoginRequest'
+              $ref: "#/components/schemas/LoginRequest"
             examples:
               student:
                 summary: A student logging in
@@ -124,17 +124,17 @@ paths:
                   password: Sara@benali1234
 
       responses:
-        '200':
+        "200":
           description: Authenticated.
           headers:
             Cache-Control:
-              $ref: '#/components/headers/CacheControlNoStore'
+              $ref: "#/components/headers/CacheControlNoStore"
             X-Request-Id:
-              $ref: '#/components/headers/RequestId'
+              $ref: "#/components/headers/RequestId"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenResponse'
+                $ref: "#/components/schemas/TokenResponse"
               examples:
                 tokens:
                   value:
@@ -142,19 +142,19 @@ paths:
                     tokenType: Bearer
                     expiresIn: 600
                     refreshToken: 7f3c1e9a4b2d8f6e0c5a1b3d9e7f2a4c6b8d0e1f3a5c7b9d2e4f6a8c0b1d3e5f
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
           description: |
             Credentials are right but the account cannot log in
             (`pending_verification` or `suspended`). Check the `code` field.
           headers:
             X-Request-Id:
-              $ref: '#/components/headers/RequestId'
+              $ref: "#/components/headers/RequestId"
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/Problem'
+                $ref: "#/components/schemas/Problem"
               examples:
                 suspended:
                   value:
@@ -170,12 +170,12 @@ paths:
                     status: 403
                     code: account_pending_verification
                     detail: Verify your email address before logging in.
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
-  /auth/refresh:
+  /identity/auth/refresh:
     post:
       tags: [Auth]
       operationId: refresh
@@ -196,23 +196,23 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RefreshRequest'
+              $ref: "#/components/schemas/RefreshRequest"
             examples:
               refresh:
                 value:
                   refreshToken: 7f3c1e9a4b2d8f6e0c5a1b3d9e7f2a4c6b8d0e1f3a5c7b9d2e4f6a8c0b1d3e5f
       responses:
-        '200':
+        "200":
           description: Tokens rotated.
           headers:
             Cache-Control:
-              $ref: '#/components/headers/CacheControlNoStore'
+              $ref: "#/components/headers/CacheControlNoStore"
             X-Request-Id:
-              $ref: '#/components/headers/RequestId'
+              $ref: "#/components/headers/RequestId"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenResponse'
+                $ref: "#/components/schemas/TokenResponse"
               examples:
                 rotated:
                   value:
@@ -220,18 +220,18 @@ paths:
                     tokenType: Bearer
                     expiresIn: 600
                     refreshToken: 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b
-        '401':
+        "401":
           description: |
             The refresh token is unknown, expired, revoked, reused, or belongs
             to an account that cannot log in. Clients should send the user back
             to `/auth/login`.
           headers:
             X-Request-Id:
-              $ref: '#/components/headers/RequestId'
+              $ref: "#/components/headers/RequestId"
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/Problem'
+                $ref: "#/components/schemas/Problem"
               examples:
                 invalidRefresh:
                   value:
@@ -241,12 +241,12 @@ paths:
                     code: invalid_refresh
                     detail: The refresh token is no longer usable. Log in again.
                     requestId: 0192f5b1-2c3d-7e4f-9a0b-1c2d3e4f5a6b
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
-  /auth/logout:
+  /identity/auth/logout:
     post:
       tags: [Auth]
       operationId: logout
@@ -263,23 +263,23 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LogoutRequest'
+              $ref: "#/components/schemas/LogoutRequest"
             examples:
               logout:
                 value:
                   refreshToken: 7f3c1e9a4b2d8f6e0c5a1b3d9e7f2a4c6b8d0e1f3a5c7b9d2e4f6a8c0b1d3e5f
       responses:
-        '204':
+        "204":
           description: Session ended (or already ended).
           headers:
             X-Request-Id:
-              $ref: '#/components/headers/RequestId'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
+              $ref: "#/components/headers/RequestId"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
-  /auth/logout-all:
+  /identity/auth/logout-all:
     post:
       tags: [Auth]
       operationId: logoutAll
@@ -294,17 +294,17 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '204':
+        "204":
           description: All sessions for this user have been revoked.
           headers:
             X-Request-Id:
-              $ref: '#/components/headers/RequestId'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
+              $ref: "#/components/headers/RequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
-  /me:
+  /identity/me:
     get:
       tags: [Me]
       operationId: getMe
@@ -317,17 +317,17 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: The current user.
           headers:
             Cache-Control:
-              $ref: '#/components/headers/CacheControlNoStore'
+              $ref: "#/components/headers/CacheControlNoStore"
             X-Request-Id:
-              $ref: '#/components/headers/RequestId'
+              $ref: "#/components/headers/RequestId"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserMe'
+                $ref: "#/components/schemas/UserMe"
               examples:
                 student:
                   value:
@@ -339,11 +339,11 @@ paths:
                     role: student
                     status: active
                     campus: rabat
-                    createdAt: '2024-09-01T09:15:00Z'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
+                    createdAt: "2024-09-01T09:15:00Z"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
     put:
       tags: [Me]
       operationId: updateMe
@@ -358,29 +358,29 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateMeRequest'
+              $ref: "#/components/schemas/UpdateMeRequest"
       responses:
-        '200':
+        "200":
           description: Profile updated successfully.
           headers:
             Cache-Control:
-              $ref: '#/components/headers/CacheControlNoStore'
+              $ref: "#/components/headers/CacheControlNoStore"
             X-Request-Id:
-              $ref: '#/components/headers/RequestId'
+              $ref: "#/components/headers/RequestId"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserMe'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
+                $ref: "#/components/schemas/UserMe"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
-  /sessions:
+  /identity/sessions:
     get:
       tags: [Sessions]
       operationId: listSessions
@@ -392,25 +392,25 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: Active sessions, newest first.
           headers:
             Cache-Control:
-              $ref: '#/components/headers/CacheControlNoStore'
+              $ref: "#/components/headers/CacheControlNoStore"
             X-Request-Id:
-              $ref: '#/components/headers/RequestId'
+              $ref: "#/components/headers/RequestId"
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/SessionSummary'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
+                  $ref: "#/components/schemas/SessionSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
-  /sessions/{sessionId}:
+  /identity/sessions/{sessionId}:
     delete:
       tags: [Sessions]
       operationId: revokeSession
@@ -429,17 +429,17 @@ paths:
             type: integer
             format: int64
       responses:
-        '204':
+        "204":
           description: Session revoked.
           headers:
             X-Request-Id:
-              $ref: '#/components/headers/RequestId'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
+              $ref: "#/components/headers/RequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
 components:
   securitySchemes:
@@ -476,7 +476,7 @@ components:
         type: string
         format: uuid
     CacheControlNoStore:
-      description: 'Always `no-store`: token responses must never be cached by browsers or proxies.'
+      description: "Always `no-store`: token responses must never be cached by browsers or proxies."
       schema:
         type: string
         enum: [no-store]
@@ -494,7 +494,7 @@ components:
         wrong.
       headers:
         X-Request-Id:
-          $ref: '#/components/headers/RequestId'
+          $ref: "#/components/headers/RequestId"
         WWW-Authenticate:
           description: Authentication scheme expected.
           schema:
@@ -503,7 +503,7 @@ components:
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/Problem'
+            $ref: "#/components/schemas/Problem"
           examples:
             invalidCredentials:
               value:
@@ -517,11 +517,11 @@ components:
       description: The request is well-formed JSON but violates a business or format rule.
       headers:
         X-Request-Id:
-          $ref: '#/components/headers/RequestId'
+          $ref: "#/components/headers/RequestId"
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ValidationProblem'
+            $ref: "#/components/schemas/ValidationProblem"
           examples:
             invalidEmail:
               value:
@@ -529,7 +529,7 @@ components:
                 title: Validation failed
                 status: 422
                 code: validation_failed
-                requestId: 0192f5b1-2c3d-7e4f-9a0b-1c2d3e4f5a6b   # <-- add
+                requestId: 0192f5b1-2c3d-7e4f-9a0b-1c2d3e4f5a6b # <-- add
                 errors:
                   - field: email
                     code: invalid_format
@@ -539,13 +539,13 @@ components:
       description: Rate limit exceeded. Wait `Retry-After` seconds.
       headers:
         Retry-After:
-          $ref: '#/components/headers/RetryAfter'
+          $ref: "#/components/headers/RetryAfter"
         X-Request-Id:
-          $ref: '#/components/headers/RequestId'
+          $ref: "#/components/headers/RequestId"
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/Problem'
+            $ref: "#/components/schemas/Problem"
           examples:
             rateLimited:
               value:
@@ -553,17 +553,17 @@ components:
                 title: Too many requests
                 status: 429
                 code: rate_limited
-                requestId: 0192f5b1-2c3d-7e4f-9a0b-1c2d3e4f5a6b   # <-- add
+                requestId: 0192f5b1-2c3d-7e4f-9a0b-1c2d3e4f5a6b # <-- add
                 detail: Too many login attempts. Try again in 60 seconds.
     BadRequest:
       description: The request could not be understood (e.g., malformed JSON).
       headers:
         X-Request-Id:
-          $ref: '#/components/headers/RequestId'
+          $ref: "#/components/headers/RequestId"
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/Problem'
+            $ref: "#/components/schemas/Problem"
           examples:
             malformedJson:
               value:
@@ -578,11 +578,11 @@ components:
       description: The resource already exists (duplicate email or phone number).
       headers:
         X-Request-Id:
-          $ref: '#/components/headers/RequestId'
+          $ref: "#/components/headers/RequestId"
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/Problem'
+            $ref: "#/components/schemas/Problem"
           examples:
             duplicateContact:
               value:
@@ -597,11 +597,11 @@ components:
       description: The requested resource does not exist or is not owned by the caller.
       headers:
         X-Request-Id:
-          $ref: '#/components/headers/RequestId'
+          $ref: "#/components/headers/RequestId"
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/Problem'
+            $ref: "#/components/schemas/Problem"
           examples:
             sessionNotFound:
               value:
@@ -736,7 +736,17 @@ components:
     UserMe:
       type: object
       required:
-        [id, email, firstName, lastName, affiliation, role, status, campus, createdAt]
+        [
+          id,
+          email,
+          firstName,
+          lastName,
+          affiliation,
+          role,
+          status,
+          campus,
+          createdAt,
+        ]
       properties:
         id:
           type: integer
@@ -751,7 +761,7 @@ components:
           type: string
         affiliation:
           type: string
-          enum: ['1337', 'ABS', 'FGSES', 'SHBM', 'SAS', 'CC', 'AEM', 'um6p']
+          enum: ["1337", "ABS", "FGSES", "SHBM", "SAS", "CC", "AEM", "um6p"]
         role:
           type: string
           enum: [student, staff, admin, guest, worker]
@@ -824,7 +834,7 @@ components:
 
     ValidationProblem:
       allOf:
-        - $ref: '#/components/schemas/Problem'
+        - $ref: "#/components/schemas/Problem"
         - type: object
           required: [errors]
           properties:
